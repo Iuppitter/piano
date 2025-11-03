@@ -1,4 +1,10 @@
 // --- 1. Değişkenler ve Ayarlar ---
+
+// YENİ: Dokunmatik ekranı algıla
+// Eğer dokunmatik ekran varsa 'touchstart' (dokunma) olayını,
+// yoksa (masaüstü gibi) 'click' (tıklama) olayını kullan.
+const clickEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
+
 const keys = document.querySelectorAll('.piano .key'); 
 const octaveDisplay = document.getElementById('current-octave-display');
 const octaveUpBtn = document.getElementById('octave-up');
@@ -17,7 +23,7 @@ const optionsNoteName = document.getElementById('options-note-name');
 const closeOptionsButton = document.getElementById('close-options-panel');
 const optionKeys = document.querySelectorAll('.option-key');
 
-// --- 2. Ses Çalma Fonksiyonları ---
+// --- 2. Ses Çalma Fonksiyonları (Değişiklik yok) ---
 function loadSound(note) {
     const path = `sounds/${note}.wav`;
     if (loadedSounds[path]) {
@@ -51,7 +57,7 @@ function highlightKey(noteBase) {
     }
 }
 
-// --- 3. Oktav Güncelleme ---
+// --- 3. Oktav Güncelleme (Değişiklik yok) ---
 function updateKeys() {
     octaveDisplay.textContent = currentOctave;
     keys.forEach(key => {
@@ -71,17 +77,32 @@ function octaveUp() {
     updateKeys();
 }
 
-// --- 4. Olay Dinleyicileri ---
+// --- 4. Olay Dinleyicileri (DÜZELTİLDİ) ---
+
+// Ana Piyano Tuşları
 keys.forEach(key => {
-    key.addEventListener('click', () => {
+    // 'click' yerine 'clickEvent' kullanılıyor
+    key.addEventListener(clickEvent, (e) => {
+        e.preventDefault(); // Dokunmatik kaydırmayı vb. engelle
         const noteBase = key.dataset.note;
         const fullNote = noteBase + currentOctave;
         playNote(fullNote);
         highlightKey(noteBase);
     });
 });
-octaveDownBtn.addEventListener('click', octaveDown);
-octaveUpBtn.addEventListener('click', octaveUp);
+
+// Oktav Butonları
+// 'click' yerine 'clickEvent' kullanılıyor
+octaveDownBtn.addEventListener(clickEvent, (e) => {
+    e.preventDefault();
+    octaveDown();
+});
+octaveUpBtn.addEventListener(clickEvent, (e) => {
+    e.preventDefault();
+    octaveUp();
+});
+
+// Klavye (Masaüstü için, bu 'keydown' olarak kalmalı)
 window.addEventListener('keydown', (e) => {
     if (optionsPanel.style.display === 'block') return;
     const keyChar = e.key.toLowerCase();
@@ -98,20 +119,30 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// --- 5. Alt Panel Mantığı ---
+// --- 5. Alt Panel Mantığı (DÜZELTİLDİ) ---
+
+// Paneli Açma (Bu 'contextmenu' olarak kalmalı, çünkü 'sağ tık' veya 'uzun basma' anlamına gelir)
 document.querySelectorAll('.piano .key').forEach(key => {
     key.addEventListener('contextmenu', (e) => {
-        e.preventDefault(); 
+        e.preventDefault(); // Hem masaüstü sağ tık menüsünü hem de mobil uzun basma menüsünü engelle
         const fullNote = key.dataset.fullNote || key.dataset.note + currentOctave;
         optionsNoteName.textContent = fullNote;
         optionsPanel.style.display = 'block';
     });
 });
-closeOptionsButton.addEventListener('click', () => {
+
+// Paneli Kapatma Düğmesi
+// 'click' yerine 'clickEvent' kullanılıyor
+closeOptionsButton.addEventListener(clickEvent, (e) => {
+    e.preventDefault();
     optionsPanel.style.display = 'none';
 });
+
+// Seçenek Tuşları (1-5)
+// 'click' yerine 'clickEvent' kullanılıyor
 optionKeys.forEach(key => {
-    key.addEventListener('click', () => {
+    key.addEventListener(clickEvent, (e) => {
+        e.preventDefault();
         const selectedOption = key.dataset.option;
         const targetNote = optionsNoteName.textContent;
         console.log(`Nota '${targetNote}' için seçenek '${selectedOption}' seçildi.`);
@@ -120,4 +151,4 @@ optionKeys.forEach(key => {
 
 // --- 6. Başlangıç ---
 updateKeys(); 
-console.log("HTML Piyano (Yan Çevir Uyarılı) yüklendi.");
+console.log("HTML Piyano (touchstart etkin) yüklendi.");
