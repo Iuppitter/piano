@@ -6,6 +6,9 @@ const keys = document.querySelectorAll('.piano .key');
 const octaveDisplay = document.getElementById('current-octave-display');
 const octaveUpBtn = document.getElementById('octave-up');
 const octaveDownBtn = document.getElementById('octave-down');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeDisplay = document.getElementById('volume-display');
+
 const keyMap = {
     'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E', 'f': 'F',
     't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A', 'u': 'A#', 'j': 'B'
@@ -16,14 +19,20 @@ const maxOctave = 8;
 const optionsPanel = document.getElementById('options-panel');
 const optionsNoteName = document.getElementById('options-note-name');
 const closeOptionsButton = document.getElementById('close-options-panel');
-const optionKeys = document.querySelectorAll('.option-key'); // 5 tuş
+const optionKeys = document.querySelectorAll('.option-key');
 
-// --- 2. FREKANS VE ETİKET HARİTALARI ---
-const BASE_NOTE_NAME = 'A4';
-const BASE_NOTE_FREQ = 440.0;
+// --- 2. FREKANS HARİTASI ---
+const BASE_NOTES = {
+    'A0': { 'freq': 27.50, 'path': 'sounds/A0.wav' },
+    'A1': { 'freq': 55.00, 'path': 'sounds/A1.wav' },
+    'A2': { 'freq': 110.00, 'path': 'sounds/A2.wav' },
+    'A3': { 'freq': 220.00, 'path': 'sounds/A3.wav' },
+    'A4': { 'freq': 440.00, 'path': 'sounds/A4.wav' },
+    'A5': { 'freq': 880.00, 'path': 'sounds/A5.wav' },
+    'A6': { 'freq': 1760.00, 'path': 'sounds/A6.wav' },
+    'A7': { 'freq': 3520.00, 'path': 'sounds/A7.wav' }
+};
 
-// === VERİLERİNİZLE DOLDURULMUŞ FREKANS HARİTASI ===
-// Format: { 'default': AnaFrekans, '1': AltFreq1, '2': AltFreq2, ... '5': AltFreq5 }
 const ALL_FREQUENCIES = {
     'A0':  { 'default': 27.50, '1': 27.81, '2': 28.12, '3': 28.43, '4': 28.74, '5': 29.05 },
     'A#0': { 'default': 29.14, '1': 29.45, '2': 29.76, '3': 30.07, '4': 30.38, '5': 30.69 },
@@ -112,49 +121,90 @@ const ALL_FREQUENCIES = {
     'A7':  { 'default': 3520.00, '1': 3542.49, '2': 3564.98, '3': 3587.47, '4': 3609.96, '5': 3632.45 },
     'A#7': { 'default': 3729.31, '1': 3751.80, '2': 3774.29, '3': 3796.78, '4': 3819.27, '5': 3841.76 },
     'B7':  { 'default': 3951.07, '1': 3973.56, '2': 3996.05, '3': 4018.54, '4': 4041.03, '5': 4063.52 },
-    'C8':  { 'default': 4186.01, '1': 0.0, '2': 0.0, '3': 0.0, '4': 0.0, '5': 0.0 } // C8 alternatif verisi eksik
+    'C8':  { 'default': 4186.01, '1': 0.0, '2': 0.0, '3': 0.0, '4': 0.0, '5': 0.0 } 
 };
 
-// SİLİNDİ: ALL_LABELS haritası artık gerekli değil.
-
-// --- 3. SES YÜKLEME ---
+// --- 3. SES YÜKLEME VE BAĞLAM ---
 let audioContext = new (window.AudioContext || window.webkitAudioContext)();
-let baseSoundBuffer = null; 
-function loadBaseSound() {
-    const path = `sounds/${BASE_NOTE_NAME}.wav`;
-    fetch(path)
+// {DÜZELTME} Hatalı objeyi düzelt
+let baseSoundBuffers = {
+    'A0': null, 'A1': null, 'A2': null, 'A3': null,
+    'A4': null, 'A5': null, 'A6': null, 'A7': null
+};
+const gainNode = audioContext.createGain();
+gainNode.connect(audioContext.destination);
+
+// Tek bir sesi yükleyen yardımcı fonksiyon
+function loadSound(url) {
+    return fetch(url)
         .then(response => {
-            if (!response.ok) throw new Error(`Ses dosyası yüklenemedi: ${path}`);
+            if (!response.ok) throw new Error(`Ses dosyası yüklenemedi: ${url}`);
             return response.arrayBuffer();
         })
-        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-        .then(audioBuffer => {
-            baseSoundBuffer = audioBuffer;
-            console.log(`Temel ses dosyası (${BASE_NOTE_NAME}) başarıyla yüklendi.`);
-        })
-        .catch(err => {
-            console.error(err);
-            alert(`HATA: Temel ses dosyası (sounds/${BASE_NOTE_NAME}.wav) yüklenemedi.`);
+        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer));
+}
+
+// {YENİ} 8 temel sesi aynı anda yükle
+function loadBaseSounds() {
+    const loadPromises = Object.keys(BASE_NOTES).map(noteKey => {
+        return loadSound(BASE_NOTES[noteKey].path)
+            .then(buffer => ({ key: noteKey, buffer: buffer }))
+            .catch(err => {
+                console.error(`UYARI: ${BASE_NOTES[noteKey].path} yüklenemedi.`, err.message);
+                return { key: noteKey, buffer: null };
+            });
+    });
+
+    Promise.all(loadPromises)
+        .then(results => {
+            results.forEach(result => {
+                if (result.buffer) {
+                    baseSoundBuffers[result.key] = result.buffer;
+                }
+            });
+            console.log("Temel ses dosyası yüklemesi tamamlandı.");
+            const missing = Object.keys(baseSoundBuffers).filter(k => baseSoundBuffers[k] === null);
+            if(missing.length > 0) {
+                alert(`UYARI: Şu temel ses dosyaları 'sounds' klasöründe bulunamadı: ${missing.join(', ')}. Bu oktavlardaki sesler bozuk çıkabilir.`);
+            }
         });
 }
 
-// --- 4. SES ÇALMA (YENİ MANTIK) ---
-// Artık 'note' değil, doğrudan 'frequency' çalıyoruz
+// --- 4. SES ÇALMA (MULTI-SAMPLING MANTIĞI) ---
 function playFrequency(targetFrequency) {
-    if (!baseSoundBuffer) {
-        console.warn("Temel ses henüz yüklenmedi.");
-        return;
-    }
     if (targetFrequency <= 0.0) { 
         console.warn(`UYARI: Frekans 0.0'dır. Çalınmıyor.`);
         return;
     }
 
-    const playbackRate = targetFrequency / BASE_NOTE_FREQ;
+    let bestSampleKey = null;
+    let minDiff = Infinity;
+
+    // Yüklü olan temel sesler arasından en yakınını bul
+    for (const noteKey in baseSoundBuffers) {
+        if (baseSoundBuffers[noteKey]) { // Sadece yüklenmiş olanları dikkate al
+            const baseFreq = BASE_NOTES[noteKey].freq;
+            const diff = Math.abs(Math.log(targetFrequency) - Math.log(baseFreq));
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestSampleKey = noteKey;
+            }
+        }
+    }
+
+    if (!bestSampleKey) {
+        console.error("Hiç temel ses dosyası yüklenemedi! 'sounds' klasörünü kontrol edin.");
+        return;
+    }
+    
+    const baseSoundBuffer = baseSoundBuffers[bestSampleKey];
+    const baseFreq = BASE_NOTES[bestSampleKey].freq;
+
+    const playbackRate = targetFrequency / baseFreq;
     const source = audioContext.createBufferSource();
     source.buffer = baseSoundBuffer;
     source.playbackRate.value = playbackRate;
-    source.connect(audioContext.destination);
+    source.connect(gainNode);
     source.start(0);
 }
 
@@ -196,13 +246,10 @@ function octaveUp() {
 // --- 6. Olay Dinleyicileri (Piyano Tuşları) ---
 keys.forEach(key => {
     
-    // Ana piyano tuşuna ait verileri al
     const getNoteData = () => {
         const fullNote = key.dataset.fullNote;
         if (!fullNote || !ALL_FREQUENCIES[fullNote]) return null;
-        
         const noteBase = key.dataset.note;
-        // Ana piyano tuşu, 'default' frekansını çalar
         const frequency = ALL_FREQUENCIES[fullNote]['default'];
         return { noteBase, fullNote, frequency };
     };
@@ -217,33 +264,22 @@ keys.forEach(key => {
         }
     });
 
-    // === PANEL AÇMA MANTIĞI (BASİT ETİKETLİ) ===
     const openOptionsPanel = (noteData) => {
         const fullNote = noteData.fullNote;
         optionsNoteName.textContent = fullNote;
-
         const freqs = ALL_FREQUENCIES[fullNote];
         if (!freqs) {
             console.error(`Frekans haritasında ${fullNote} için veri yok.`);
             return;
         }
-
-        // 5 panel tuşunu güncelle
         optionKeys.forEach((optKey, index) => {
             const optionNum = (index + 1).toString(); // "1", "2", ... "5"
-            
             const frequency = freqs[optionNum];
-            
-            // 1. Etiket ayarlandı (HTML'deki "1", "2" vb. kalır, DOKUNMUYORUZ)
-            // optKey.querySelector('span').textContent = ... ; (Bu satır silindi)
-            
-            // 2. Frekansı tuşun verisine kaydet
             optKey.dataset.frequency = frequency || '0.0';
-            
-            // 3. Vurguyu kaldır
             optKey.classList.remove('selected');
+            // Etiketi "1", "2" vb. olarak ayarla
+            optKey.querySelector('span').textContent = optionNum;
         });
-        
         optionsPanel.style.display = 'block';
     };
     
@@ -260,9 +296,7 @@ keys.forEach(key => {
         e.preventDefault(); 
         const noteData = getNoteData();
         if (!noteData) return;
-
         pressTimer = setTimeout(() => {
-            // UZUN BASMA: Paneli aç
             openOptionsPanel(noteData);
             pressTimer = null;
         }, 400); 
@@ -270,10 +304,9 @@ keys.forEach(key => {
 
     key.addEventListener('touchend', (e) => {
         e.preventDefault();
-        if (pressTimer) { // KISA BASMA: Nota çal
+        if (pressTimer) { 
             clearTimeout(pressTimer); 
             pressTimer = null;
-            
             const noteData = getNoteData();
             if (!noteData) return;
             playFrequency(noteData.frequency);
@@ -290,6 +323,12 @@ keys.forEach(key => {
 });
 
 // --- 7. Diğer Olay Dinleyicileri ---
+
+// SES AYARI DİNLEYİCİSİ
+volumeSlider.addEventListener('input', () => {
+    gainNode.gain.value = volumeSlider.value;
+    volumeDisplay.textContent = Math.round(volumeSlider.value * 100);
+});
 
 // Oktav Butonları
 octaveDownBtn.addEventListener(clickEvent, (e) => { e.preventDefault(); octaveDown(); });
@@ -323,21 +362,17 @@ closeOptionsButton.addEventListener(clickEvent, (e) => {
 optionKeys.forEach(key => {
     key.addEventListener(clickEvent, (e) => {
         e.preventDefault();
-        
-        // 1. Tuşa kaydettiğimiz frekansı oku
         const freqToPlay = parseFloat(key.dataset.frequency);
-        
-        // 2. O frekansı çal (önizleme)
         playFrequency(freqToPlay);
-        
-        // 3. Görsel vurgu
         highlightKey(key);
-        
         console.log(`Panelden çalındı: ${freqToPlay} Hz`);
     });
 });
 
 // --- 8. Başlangıç ---
-loadBaseSound();
+// Global gain'i slider'ın varsayılan değerine ayarla
+gainNode.gain.value = volumeSlider.value;
+// 8 temel sesi yükle
+loadBaseSounds();
 updateKeys(); 
-console.log("HTML Piyano (Dinamik Etiketli Panel) yüklendi.");
+console.log("HTML Piyano (Multi-Sample + Basit Etiket) yüklendi.");

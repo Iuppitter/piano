@@ -10,13 +10,21 @@
 
     <h1>Mucidi Murat Can Akyol</h1>
     <p>Oktav değiştirmek için + ve - butonlarını (veya klavyeden Z/X) kullanın.</p>
-    <p>Geçerli Oktav: <span id="current-octave-display">4</span></p>
-
-    <div class="octave-controls">
-        <button id="octave-down" class="octave-btn">−</button>
-        <button id="octave-up" class="octave-btn">+</button>
-    </div>
     
+    <div class="controls-container">
+        <div class="control-group">
+            <p>Geçerli Oktav: <span id="current-octave-display">4</span></p>
+            <div class="octave-controls">
+                <button id="octave-down" class="octave-btn">−</button>
+                <button id="octave-up" class="octave-btn">+</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <p>Ses Yüksekliği: <span id="volume-display">100</span>%</p>
+            <input type="range" id="volume-slider" min="0" max="5" step="0.1" value="1">
+        </div>
+    </div>
     <div class="piano">
         <div class="key white" data-note="C" data-key="a"><span>C</span></div>
         <div class="key white" data-note="D" data-key="s"><span>D</span></div>
@@ -31,7 +39,6 @@
         <div class="key black" data-note="G#" data-key="y"><span>G#</span></div>
         <div class="key black" data-note="A#" data-key="u"><span>A#</span></div>
     </div>
-
 
     <div id="options-panel">
         <div class="options-header">
