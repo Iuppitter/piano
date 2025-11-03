@@ -55,8 +55,8 @@ body {
     font-weight: bold;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation; /* Kaydırmayı engeller */
-    -webkit-touch-callout: none; /* iOS 'Copy' menüsünü engeller */
+    touch-action: manipulation; 
+    -webkit-touch-callout: none;
 }
 
 .key.white {
@@ -141,7 +141,6 @@ body {
     margin: 0 5px;
     border: 2px solid #333; 
     flex-shrink: 0; 
-    /* YENİ: Bunlar da birer 'key' olduğu için menü engelleri buraya da gelsin */
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     -webkit-touch-callout: none;
@@ -167,10 +166,6 @@ body {
     font-size: 1.2em;
 }
 @media (orientation: portrait) and (max-width: 768px) {
-    #orientation-warning {
-        display: flex; 
-    }
-    body > *:not(#orientation-warning) {
-        display: none; 
-    }
+    #orientation-warning { display: flex; }
+    body > *:not(#orientation-warning) { display: none; }
 }
