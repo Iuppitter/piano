@@ -1,10 +1,6 @@
 // --- 1. Değişkenler ve Ayarlar ---
 
-// YENİ: Dokunmatik ekranı algıla
-// Eğer dokunmatik ekran varsa 'touchstart' (dokunma) olayını,
-// yoksa (masaüstü gibi) 'click' (tıklama) olayını kullan.
 const clickEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
-
 const keys = document.querySelectorAll('.piano .key'); 
 const octaveDisplay = document.getElementById('current-octave-display');
 const octaveUpBtn = document.getElementById('octave-up');
@@ -81,9 +77,11 @@ function octaveUp() {
 
 // Ana Piyano Tuşları
 keys.forEach(key => {
-    // 'click' yerine 'clickEvent' kullanılıyor
     key.addEventListener(clickEvent, (e) => {
-        e.preventDefault(); // Dokunmatik kaydırmayı vb. engelle
+        // === DÜZELTME: Bu satır kaldırıldı ===
+        // e.preventDefault(); 
+        // === DÜZELTME BİTTİ ===
+        
         const noteBase = key.dataset.note;
         const fullNote = noteBase + currentOctave;
         playNote(fullNote);
@@ -92,13 +90,12 @@ keys.forEach(key => {
 });
 
 // Oktav Butonları
-// 'click' yerine 'clickEvent' kullanılıyor
 octaveDownBtn.addEventListener(clickEvent, (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Bunlar buton olduğu için burada kalmalı
     octaveDown();
 });
 octaveUpBtn.addEventListener(clickEvent, (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Bunlar buton olduğu için burada kalmalı
     octaveUp();
 });
 
@@ -119,12 +116,12 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// --- 5. Alt Panel Mantığı (DÜZELTİLDİ) ---
+// --- 5. Alt Panel Mantığı (Değişiklik yok) ---
 
-// Paneli Açma (Bu 'contextmenu' olarak kalmalı, çünkü 'sağ tık' veya 'uzun basma' anlamına gelir)
+// Paneli Açma ('contextmenu' dinleyicisi doğru, buna dokunmuyoruz)
 document.querySelectorAll('.piano .key').forEach(key => {
     key.addEventListener('contextmenu', (e) => {
-        e.preventDefault(); // Hem masaüstü sağ tık menüsünü hem de mobil uzun basma menüsünü engelle
+        e.preventDefault(); // Bu, 'copy/paste' menüsünü engeller ve KESİNLİKLE GEREKLİDİR.
         const fullNote = key.dataset.fullNote || key.dataset.note + currentOctave;
         optionsNoteName.textContent = fullNote;
         optionsPanel.style.display = 'block';
@@ -132,14 +129,12 @@ document.querySelectorAll('.piano .key').forEach(key => {
 });
 
 // Paneli Kapatma Düğmesi
-// 'click' yerine 'clickEvent' kullanılıyor
 closeOptionsButton.addEventListener(clickEvent, (e) => {
     e.preventDefault();
     optionsPanel.style.display = 'none';
 });
 
 // Seçenek Tuşları (1-5)
-// 'click' yerine 'clickEvent' kullanılıyor
 optionKeys.forEach(key => {
     key.addEventListener(clickEvent, (e) => {
         e.preventDefault();
@@ -151,4 +146,4 @@ optionKeys.forEach(key => {
 
 // --- 6. Başlangıç ---
 updateKeys(); 
-console.log("HTML Piyano (touchstart etkin) yüklendi.");
+console.log("HTML Piyano (contextmenu düzeltmesi) yüklendi.");
