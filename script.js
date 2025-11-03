@@ -1,6 +1,10 @@
 // --- 1. Değişkenler ve Ayarlar ---
 
+// 'click' vs 'touchstart'
 const clickEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
+// Zamanlayıcı için
+let pressTimer = null; 
+
 const keys = document.querySelectorAll('.piano .key'); 
 const octaveDisplay = document.getElementById('current-octave-display');
 const octaveUpBtn = document.getElementById('octave-up');
@@ -65,49 +69,104 @@ function updateKeys() {
     console.log(`Oktav değiştirildi: ${currentOctave}`);
 }
 function octaveDown() {
-    currentOctave = Math.max(minOctave, currentOctave - 1);
+    currentOctave = max(minOctave, currentOctave - 1);
     updateKeys();
 }
 function octaveUp() {
-    currentOctave = Math.min(maxOctave, currentOctave + 1);
+    currentOctave = min(maxOctave, currentOctave + 1);
     updateKeys();
 }
 
-// --- 4. Olay Dinleyicileri (DÜZELTİLDİ) ---
+// --- 4. Olay Dinleyicileri (YENİ MANTIK) ---
 
-// Ana Piyano Tuşları
+// === YENİ ZAMANLAYICI MANTIĞI (PİYANO TUŞLARI) ===
 keys.forEach(key => {
-    key.addEventListener(clickEvent, (e) => {
-        // === DÜZELTME: Bu satır kaldırıldı ===
-        // e.preventDefault(); 
-        // === DÜZELTME BİTTİ ===
+    
+    // Masaüstü için basit 'click' (Nota Çal)
+    key.addEventListener('click', () => {
+        // Dokunmatik cihazda 'click' olayı 'touchstart'tan sonra da tetiklenebilir,
+        // bunu engellemek için 'clickEvent'i kontrol et
+        if (clickEvent === 'click') { 
+            const noteBase = key.dataset.note;
+            const fullNote = noteBase + currentOctave;
+            playNote(fullNote);
+            highlightKey(noteBase);
+        }
+    });
+
+    // Masaüstü için 'contextmenu' (Panel Aç)
+    key.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const fullNote = key.dataset.fullNote || key.dataset.note + currentOctave;
+        optionsNoteName.textContent = fullNote;
+        optionsPanel.style.display = 'block';
+    });
+
+    // --- Mobil (Dokunmatik) Cihazlar için Zamanlayıcı ---
+    
+    // Dokunma başladığında
+    key.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Tarayıcı davranışını (kaydırma, menü) engelle
         
-        const noteBase = key.dataset.note;
-        const fullNote = noteBase + currentOctave;
-        playNote(fullNote);
-        highlightKey(noteBase);
+        // Zamanlayıcıyı başlat
+        pressTimer = setTimeout(() => {
+            // Zamanlayıcı bitince: Bu bir 'uzun basma'dır.
+            // Paneli aç
+            const fullNote = key.dataset.fullNote || key.dataset.note + currentOctave;
+            optionsNoteName.textContent = fullNote;
+            optionsPanel.style.display = 'block';
+            pressTimer = null; // Zamanlayıcıyı temizle
+        }, 400); // 400 milisaniye basılı tutarsa
+    });
+
+    // Dokunma bittiğinde
+    key.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        
+        // Eğer zamanlayıcı HALA ÇALIŞIYORSA (yani 400ms geçmediyse)
+        if (pressTimer) {
+            // Bu bir 'kısa basma'dır.
+            clearTimeout(pressTimer); // Zamanlayıcıyı iptal et (panel açılmasın)
+            pressTimer = null;
+            
+            // Notayı çal
+            const noteBase = key.dataset.note;
+            const fullNote = noteBase + currentOctave;
+            playNote(fullNote);
+            highlightKey(noteBase);
+        }
+    });
+
+    // Dokunma iptal olursa (parmak kayarsa vb.)
+    key.addEventListener('touchcancel', () => {
+        if (pressTimer) {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+        }
     });
 });
+// === YENİ MANTIK BİTTİ ===
+
+
+// --- DİĞER BUTONLAR (Basit Tıklama) ---
 
 // Oktav Butonları
 octaveDownBtn.addEventListener(clickEvent, (e) => {
-    e.preventDefault(); // Bunlar buton olduğu için burada kalmalı
+    e.preventDefault();
     octaveDown();
 });
 octaveUpBtn.addEventListener(clickEvent, (e) => {
-    e.preventDefault(); // Bunlar buton olduğu için burada kalmalı
+    e.preventDefault();
     octaveUp();
 });
 
-// Klavye (Masaüstü için, bu 'keydown' olarak kalmalı)
+// Klavye (Masaüstü)
 window.addEventListener('keydown', (e) => {
     if (optionsPanel.style.display === 'block') return;
     const keyChar = e.key.toLowerCase();
-    if (keyChar === 'z') {
-        octaveDown();
-    } else if (keyChar === 'x') {
-        octaveUp();
-    }
+    if (keyChar === 'z') octaveDown();
+    else if (keyChar === 'x') octaveUp();
+    
     const noteBase = keyMap[keyChar];
     if (noteBase) {
         const fullNote = noteBase + currentOctave;
@@ -116,19 +175,9 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// --- 5. Alt Panel Mantığı (Değişiklik yok) ---
+// --- 5. Alt Panel Mantığı (Basit Tıklama) ---
 
-// Paneli Açma ('contextmenu' dinleyicisi doğru, buna dokunmuyoruz)
-document.querySelectorAll('.piano .key').forEach(key => {
-    key.addEventListener('contextmenu', (e) => {
-        e.preventDefault(); // Bu, 'copy/paste' menüsünü engeller ve KESİNLİKLE GEREKLİDİR.
-        const fullNote = key.dataset.fullNote || key.dataset.note + currentOctave;
-        optionsNoteName.textContent = fullNote;
-        optionsPanel.style.display = 'block';
-    });
-});
-
-// Paneli Kapatma Düğmesi
+// Kapatma Düğmesi
 closeOptionsButton.addEventListener(clickEvent, (e) => {
     e.preventDefault();
     optionsPanel.style.display = 'none';
@@ -146,4 +195,4 @@ optionKeys.forEach(key => {
 
 // --- 6. Başlangıç ---
 updateKeys(); 
-console.log("HTML Piyano (contextmenu düzeltmesi) yüklendi.");
+console.log("HTML Piyano (Zamanlayıcı düzeltmesi) yüklendi.");

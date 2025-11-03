@@ -32,6 +32,9 @@ body {
     background-color: #f9f9f9;
     cursor: pointer;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
 }
 .octave-btn:active { background-color: #ccc; }
 
@@ -43,7 +46,6 @@ body {
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
-/* === DÜZELTİLEN KISIM === */
 .key {
     cursor: pointer;
     display: flex;
@@ -53,12 +55,9 @@ body {
     font-weight: bold;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    
-    /* YENİ: Safari "basılı tutma" (long-press) menüsünü engeller */
-    -webkit-touch-callout: none;
+    touch-action: manipulation; /* Kaydırmayı engeller */
+    -webkit-touch-callout: none; /* iOS 'Copy' menüsünü engeller */
 }
-/* === DÜZELTME BİTTİ === */
 
 .key.white {
     width: 100px;
@@ -142,6 +141,10 @@ body {
     margin: 0 5px;
     border: 2px solid #333; 
     flex-shrink: 0; 
+    /* YENİ: Bunlar da birer 'key' olduğu için menü engelleri buraya da gelsin */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
 }
 .key.option-key:hover { background-color: #eee; }
 .key.option-key:active { background-color: #ccc; }
