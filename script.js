@@ -1,32 +1,23 @@
 // --- 1. Değişkenler ve Ayarlar ---
-
-// DÜZELTME 1: Seçici (selector) daha spesifik hale getirildi.
-// Artık sadece ana .piano'nun içindeki .key'leri seçiyor.
 const keys = document.querySelectorAll('.piano .key'); 
 const octaveDisplay = document.getElementById('current-octave-display');
-
-// Klavye haritası (Değişiklik yok)
+const octaveUpBtn = document.getElementById('octave-up');
+const octaveDownBtn = document.getElementById('octave-down');
 const keyMap = {
     'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E', 'f': 'F',
     't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A', 'u': 'A#', 'j': 'B'
 };
-
 let currentOctave = 4;
 const minOctave = 0;
 const maxOctave = 8;
-
 let audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let loadedSounds = {};
-
-// Alt Panel için Değişkenler (Değişiklik yok)
 const optionsPanel = document.getElementById('options-panel');
 const optionsNoteName = document.getElementById('options-note-name');
 const closeOptionsButton = document.getElementById('close-options-panel');
 const optionKeys = document.querySelectorAll('.option-key');
 
-
-// --- 2. Ses Çalma Fonksiyonları (Değişiklik yok) ---
-
+// --- 2. Ses Çalma Fonksiyonları ---
 function loadSound(note) {
     const path = `sounds/${note}.wav`;
     if (loadedSounds[path]) {
@@ -40,7 +31,6 @@ function loadSound(note) {
             return audioBuffer;
         });
 }
-
 function playNote(note) {
     loadSound(note).then(audioBuffer => {
         const source = audioContext.createBufferSource();
@@ -51,7 +41,6 @@ function playNote(note) {
         console.warn(`UYARI: Ses dosyası bulunamadı veya yüklenemedi: sounds/${note}.wav`);
     });
 }
-
 function highlightKey(noteBase) {
     const key = document.querySelector(`.piano .key[data-note="${noteBase}"]`);
     if (key) {
@@ -62,22 +51,27 @@ function highlightKey(noteBase) {
     }
 }
 
-// --- 3. Oktav Güncelleme (Değişiklik yok) ---
-// (Düzeltme 1 sayesinde bu fonksiyon artık "1-5" tuşlarına dokunmayacak)
+// --- 3. Oktav Güncelleme ---
 function updateKeys() {
     octaveDisplay.textContent = currentOctave;
     keys.forEach(key => {
         const noteBase = key.dataset.note; 
         const newNote = noteBase + currentOctave;
         key.querySelector('span').textContent = newNote;
-        key.dataset.fullNote = newNote; // Tam notayı data özelliğinde sakla
+        key.dataset.fullNote = newNote;
     });
     console.log(`Oktav değiştirildi: ${currentOctave}`);
 }
+function octaveDown() {
+    currentOctave = Math.max(minOctave, currentOctave - 1);
+    updateKeys();
+}
+function octaveUp() {
+    currentOctave = Math.min(maxOctave, currentOctave + 1);
+    updateKeys();
+}
 
-// --- 4. Olay Dinleyicileri (Klavye ve Sol Tık) (Değişiklik yok) ---
-
-// Sol Tıklama
+// --- 4. Olay Dinleyicileri ---
 keys.forEach(key => {
     key.addEventListener('click', () => {
         const noteBase = key.dataset.note;
@@ -86,21 +80,16 @@ keys.forEach(key => {
         highlightKey(noteBase);
     });
 });
-
-// Klavye
+octaveDownBtn.addEventListener('click', octaveDown);
+octaveUpBtn.addEventListener('click', octaveUp);
 window.addEventListener('keydown', (e) => {
     if (optionsPanel.style.display === 'block') return;
-    
     const keyChar = e.key.toLowerCase();
-    
     if (keyChar === 'z') {
-        currentOctave = Math.max(minOctave, currentOctave - 1);
-        updateKeys();
+        octaveDown();
     } else if (keyChar === 'x') {
-        currentOctave = Math.min(maxOctave, currentOctave + 1);
-        updateKeys();
+        octaveUp();
     }
-    
     const noteBase = keyMap[keyChar];
     if (noteBase) {
         const fullNote = noteBase + currentOctave;
@@ -109,10 +98,7 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// --- 5. Alt Panel Mantığı (Sağ Tık) ---
-
-// Tüm tuşlara (siyah ve beyaz) sağ tıklandığında paneli aç
-// (Buradaki "keys" seçicisi de düzeltildi)
+// --- 5. Alt Panel Mantığı ---
 document.querySelectorAll('.piano .key').forEach(key => {
     key.addEventListener('contextmenu', (e) => {
         e.preventDefault(); 
@@ -121,29 +107,17 @@ document.querySelectorAll('.piano .key').forEach(key => {
         optionsPanel.style.display = 'block';
     });
 });
-
-// Paneli Kapatma Düğmesi
 closeOptionsButton.addEventListener('click', () => {
     optionsPanel.style.display = 'none';
 });
-
-// Paneldeki 5 Seçenek Tuşuna Tıklama
 optionKeys.forEach(key => {
     key.addEventListener('click', () => {
         const selectedOption = key.dataset.option;
         const targetNote = optionsNoteName.textContent;
-
         console.log(`Nota '${targetNote}' için seçenek '${selectedOption}' seçildi.`);
-        
-        // DÜZELTME 2: Bu satır kaldırıldı, artık panel otomatik kapanmıyor.
-        // optionsPanel.style.display = 'none';
-        
-        // (İsteğe bağlı) Seçenek tuşuna bastığınızda bir onay sesi çalabilirsiniz
-        // playNote('C6'); 
     });
 });
-// --- BİTİŞ ---
 
 // --- 6. Başlangıç ---
-updateKeys(); // Piyanoyu ilk oktav (4) için kur
-console.log("HTML Piyano yüklendi. Alt panel için tuşlara sağ tıklayın.");
+updateKeys(); 
+console.log("HTML Piyano (Yan Çevir Uyarılı) yüklendi.");

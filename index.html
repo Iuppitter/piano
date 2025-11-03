@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mucidi Murat Can Akyol</title>
+    <title>HTML Piyano</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <h1>Mucidi Murat Can Akyol</h1>
-    <p>Oktav değiştirmek için 'Z' (düşür) ve 'X' (yükselt) tuşlarını kullanın.</p>
+
+    <p>Oktav değiştirmek için + ve - butonlarını (veya klavyeden Z/X) kullanın.</p>
     <p>Geçerli Oktav: <span id="current-octave-display">4</span></p>
 
+    <div class="octave-controls">
+        <button id="octave-down" class="octave-btn">−</button>
+        <button id="octave-up" class="octave-btn">+</button>
+    </div>
+    
     <div class="piano">
         <div class="key white" data-note="C" data-key="a"><span>C</span></div>
         <div class="key white" data-note="D" data-key="s"><span>D</span></div>
@@ -27,6 +33,7 @@
         <div class="key black" data-note="A#" data-key="u"><span>A#</span></div>
     </div>
 
+
     <div id="options-panel">
         <div class="options-header">
             <h3>Seçenekler (<span id="options-note-name"></span>)</h3>
@@ -41,6 +48,11 @@
             <div class="key option-key white" data-option="5"><span>5</span></div>
         </div>
     </div>
+
+    <div id="orientation-warning">
+        <p>Lütfen bu uygulamayı kullanmak için<br>telefonunuzu yan çevirin.</p>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
