@@ -8,11 +8,13 @@ const octaveUpBtn = document.getElementById('octave-up');
 const octaveDownBtn = document.getElementById('octave-down');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeDisplay = document.getElementById('volume-display');
+const freqDisplay = document.getElementById('freq-display');
 
-// {YENİ} Mod Seçici Değişkenleri
-const mode4SesRadio = document.getElementById('mode-4ses');
-const mode3SesRadio = document.getElementById('mode-3ses');
-let currentMode = '4ses'; // Varsayılan mod
+const modeSelector = document.getElementById('mode-selector');
+const modeButtons = document.querySelectorAll('.mode-btn');
+let currentMode = '4ses'; // Varsayılan
+
+const sustainSwitch = document.getElementById('sustain-switch');
 
 const keyMap = {
     'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E', 'f': 'F',
@@ -24,20 +26,23 @@ const maxOctave = 8;
 const optionsPanel = document.getElementById('options-panel');
 const optionsNoteName = document.getElementById('options-note-name');
 const closeOptionsButton = document.getElementById('close-options-panel');
-const optionKeys = document.querySelectorAll('.option-key'); // 4 tuş
+const optionKeys = document.querySelectorAll('.option-key'); // 5 tuş
 
 // --- 2. BEYİN: CENT HARİTASI (A0 = 0 cent) ---
 const A0_HZ = 27.50;
+
+// {YENİ} 8 temel ses dosyası için 2 ayrı yol (path)
 const BASE_NOTES = {
-    'A0': { 'freq': 27.50, 'path': 'sounds/A0.wav' },
-    'A1': { 'freq': 55.00, 'path': 'sounds/A1.wav' },
-    'A2': { 'freq': 110.00, 'path': 'sounds/A2.wav' },
-    'A3': { 'freq': 220.00, 'path': 'sounds/A3.wav' },
-    'A4': { 'freq': 440.00, 'path': 'sounds/A4.wav' },
-    'A5': { 'freq': 880.00, 'path': 'sounds/A5.wav' },
-    'A6': { 'freq': 1760.00, 'path': 'sounds/A6.wav' },
-    'A7': { 'freq': 3520.00, 'path': 'sounds/A7.wav' }
+    'A0': { 'freq': 27.50, 'path_normal': 'sounds/A0.wav', 'path_sustain': 'sounds/sustain/A0.wav' },
+    'A1': { 'freq': 55.00, 'path_normal': 'sounds/A1.wav', 'path_sustain': 'sounds/sustain/A1.wav' },
+    'A2': { 'freq': 110.00, 'path_normal': 'sounds/A2.wav', 'path_sustain': 'sounds/sustain/A2.wav' },
+    'A3': { 'freq': 220.00, 'path_normal': 'sounds/A3.wav', 'path_sustain': 'sounds/sustain/A3.wav' },
+    'A4': { 'freq': 440.00, 'path_normal': 'sounds/A4.wav', 'path_sustain': 'sounds/sustain/A4.wav' },
+    'A5': { 'freq': 880.00, 'path_normal': 'sounds/A5.wav', 'path_sustain': 'sounds/sustain/A5.wav' },
+    'A6': { 'freq': 1760.00, 'path_normal': 'sounds/A6.wav', 'path_sustain': 'sounds/sustain/A6.wav' },
+    'A7': { 'freq': 3520.00, 'path_normal': 'sounds/A7.wav', 'path_sustain': 'sounds/sustain/A7.wav' }
 };
+
 const ABSOLUTE_CENT_MAP = {
     'A0': 0, 'A#0': 100, 'B0': 200,
     'C1': 300, 'C#1': 400, 'D1': 500, 'D#1': 600, 'E1': 700, 'F1': 800, 'F#1': 900, 'G1': 1000, 'G#1': 1100, 'A1': 1200, 'A#1': 1300, 'B1': 1400,
@@ -49,15 +54,26 @@ const ABSOLUTE_CENT_MAP = {
     'C7': 7500, 'C#7': 7600, 'D7': 7700, 'D#7': 7800, 'E7': 7900, 'F7': 8000, 'F#7': 8100, 'G7': 8200, 'G#7': 8300, 'A7': 8400, 'A#7': 8500, 'B7': 8600,
     'C8': 8700
 };
+// Panel modları için cent artışları
+const CENT_MODES = {
+    '1ses': { steps: 1, increment: 100 / 2 }, // 50c
+    '2ses': { steps: 2, increment: 100 / 3 }, // 33.33c
+    '3ses': { steps: 3, increment: 100 / 4 }, // 25c
+    '4ses': { steps: 4, increment: 100 / 5 }, // 20c
+    '5ses': { steps: 5, increment: 100 / 6 }  // 16.67c
+};
 
 // --- 3. SES YÜKLEME VE BAĞLAM ---
 let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+// {YENİ} 16 ses tamponu (normal + sustain)
 let baseSoundBuffers = {
-    'A0': null, 'A1': null, 'A2': null, 'A3': null,
-    'A4': null, 'A5': null, 'A6': null, 'A7': null
+    'normal': { 'A0': null, 'A1': null, 'A2': null, 'A3': null, 'A4': null, 'A5': null, 'A6': null, 'A7': null },
+    'sustain': { 'A0': null, 'A1': null, 'A2': null, 'A3': null, 'A4': null, 'A5': null, 'A6': null, 'A7': null }
 };
-const gainNode = audioContext.createGain();
-gainNode.connect(audioContext.destination);
+const masterGainNode = audioContext.createGain();
+masterGainNode.connect(audioContext.destination);
+
+let activeNotes = new Map();
 
 function loadSound(url) {
     return fetch(url)
@@ -68,45 +84,101 @@ function loadSound(url) {
         .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer));
 }
 
+// {YENİ} 16 temel sesi (8 normal + 8 sustain) aynı anda yükle
 function loadBaseSounds() {
-    const loadPromises = Object.keys(BASE_NOTES).map(noteKey => {
-        return loadSound(BASE_NOTES[noteKey].path)
-            .then(buffer => ({ key: noteKey, buffer: buffer }))
-            .catch(err => {
-                console.error(`UYARI: ${BASE_NOTES[noteKey].path} yüklenemedi.`, err.message);
-                return { key: noteKey, buffer: null };
-            });
-    });
+    const loadPromises = [];
+    
+    // Yüklenecek 16 sesi de listeye ekle
+    for (const noteKey in BASE_NOTES) {
+        const paths = BASE_NOTES[noteKey];
+        // Normal sesi yükle
+        loadPromises.push(
+            loadSound(paths.path_normal)
+                .then(buffer => ({ type: 'normal', key: noteKey, buffer: buffer }))
+                .catch(err => ({ type: 'normal', key: noteKey, buffer: null, error: err.message }))
+        );
+        // Sustain sesini yükle
+        loadPromises.push(
+            loadSound(paths.path_sustain)
+                .then(buffer => ({ type: 'sustain', key: noteKey, buffer: buffer }))
+                .catch(err => ({ type: 'sustain', key: noteKey, buffer: null, error: err.message }))
+        );
+    }
 
     Promise.all(loadPromises)
         .then(results => {
+            const missingFiles = [];
             results.forEach(result => {
                 if (result.buffer) {
-                    baseSoundBuffers[result.key] = result.buffer;
+                    baseSoundBuffers[result.type][result.key] = result.buffer;
+                } else {
+                    // Hata varsa listeye ekle
+                    missingFiles.push(`sounds/${result.type === 'sustain' ? 'sustain/' : ''}${result.key}.wav`);
                 }
             });
-            console.log("Temel ses dosyası yüklemesi tamamlandı.");
-            const missing = Object.keys(baseSoundBuffers).filter(k => baseSoundBuffers[k] === null);
-            if(missing.length > 0) {
-                alert(`UYARI: Şu temel ses dosyaları 'sounds' klasöründe bulunamadı: ${missing.join(', ')}. Bu oktavlardaki sesler bozuk çıkabilir.`);
+            
+            console.log("Tüm temel ses dosyası yüklemesi tamamlandı.");
+            if(missingFiles.length > 0) {
+                alert(`UYARI: Şu temel ses dosyaları bulunamadı:\n${missingFiles.join('\n')}\nBu sesler bozuk çıkabilir.`);
             }
         });
 }
 
-// --- 4. SES ÇALMA (CENT HESAPLAMALI) ---
+// --- 4. SES ÇALMA (SUSTAIN MANTIKLI) ---
 function centToHz(centValue) {
     return A0_HZ * Math.pow(2, centValue / 1200);
 }
 
-function playFrequency(targetFrequency) {
+// O an çalınan bir notayı durdurur
+function stopNote(fullNote) {
+    // {YENİ} Pedal AÇIK ise, notayı ASLA durdurma.
+    if (sustainSwitch.checked) {
+        return;
+    }
+    
+    // Pedal KAPALI ise, 0.05 saniyede (hızlıca) sesi kes
+    if (activeNotes.has(fullNote)) {
+        const noteNodes = activeNotes.get(fullNote);
+        const now = audioContext.currentTime;
+        const releaseDuration = 0.05; // Beğendiğiniz hızlı kesme süresi
+
+        noteNodes.gain.gain.cancelScheduledValues(now);
+        noteNodes.gain.gain.setValueAtTime(noteNodes.gain.gain.value, now);
+        noteNodes.gain.gain.linearRampToValueAtTime(0, now + releaseDuration);
+
+        setTimeout(() => {
+            noteNodes.source.stop();
+            noteNodes.source.disconnect();
+            noteNodes.gain.disconnect();
+            activeNotes.delete(fullNote);
+            if (activeNotes.size === 0) {
+                freqDisplay.textContent = '---';
+            }
+        }, releaseDuration * 1000 + 100);
+    }
+}
+
+// Frekansı çalan ana fonksiyon
+function playFrequency(targetFrequency, fullNote = null) {
     if (targetFrequency <= 0.0) { 
         console.warn(`UYARI: Frekans 0.0'dır. Çalınmıyor.`);
         return;
     }
+    if (fullNote && activeNotes.has(fullNote)) {
+        stopNote(fullNote); // Yeniden çalma için eski notayı durdur (eğer pedal kapalıysa)
+    }
+
+    freqDisplay.textContent = targetFrequency.toFixed(2);
+
+    // {YENİ} Hangi kütüphaneden çalınacağını seç
+    const sampleSetKey = sustainSwitch.checked ? 'sustain' : 'normal';
+    const sampleSet = baseSoundBuffers[sampleSetKey];
+
+    // En iyi temel sesi (sample) bul
     let bestSampleKey = null;
     let minDiff = Infinity;
-    for (const noteKey in baseSoundBuffers) {
-        if (baseSoundBuffers[noteKey]) {
+    for (const noteKey in sampleSet) {
+        if (sampleSet[noteKey]) { // Sadece yüklenmiş olanları dikkate al
             const baseFreq = BASE_NOTES[noteKey].freq;
             const diff = Math.abs(Math.log(targetFrequency) - Math.log(baseFreq));
             if (diff < minDiff) {
@@ -116,18 +188,25 @@ function playFrequency(targetFrequency) {
         }
     }
     if (!bestSampleKey) {
-        console.error("Hiç temel ses dosyası yüklenemedi! 'sounds' klasörünü kontrol edin.");
+        console.error(`Hiç temel ses dosyası ('${sampleSetKey}' setinde) yüklenemedi!`);
         return;
     }
     
-    const baseSoundBuffer = baseSoundBuffers[bestSampleKey];
+    const baseSoundBuffer = sampleSet[bestSampleKey];
     const baseFreq = BASE_NOTES[bestSampleKey].freq;
     const playbackRate = targetFrequency / baseFreq;
     const source = audioContext.createBufferSource();
+    const noteGain = audioContext.createGain(); 
     source.buffer = baseSoundBuffer;
     source.playbackRate.value = playbackRate;
-    source.connect(gainNode);
+    source.connect(noteGain);
+    noteGain.connect(masterGainNode);
     source.start(0);
+    
+    // Panelin geçici seslerini (fullNote=null) takip etme
+    if (fullNote) {
+        activeNotes.set(fullNote, { source: source, gain: noteGain });
+    }
 }
 
 function highlightKey(keyElement) {
@@ -164,39 +243,26 @@ function octaveUp() {
     updateKeys();
 }
 
-// === {YENİ} PANEL AÇMA MANTIĞI (DİNAMİK ADIMLI) ===
+// === PANEL AÇMA MANTIĞI (DİNAMİK MODLU) ===
 const openOptionsPanel = (noteData) => {
     const fullNote = noteData.fullNote;
     const baseCentValue = noteData.baseCentValue;
-    
     optionsNoteName.textContent = fullNote;
-
-    // 1. Modu kontrol et
-    const steps = (currentMode === '4ses') ? 4 : 3;
-    const centIncrement = (currentMode === '4ses') ? 20 : 25;
-
-    // 2. Panel tuşlarını güncelle
+    const mode = CENT_MODES[currentMode];
+    const steps = mode.steps; 
+    const centIncrement = mode.increment;
     optionKeys.forEach((optKey, index) => {
-        
-        if (index < steps) { // 0, 1, 2 (ve 4ses için 3)
-            const centOffset = (index + 1) * centIncrement; // +25/50/75 or +20/40/60/80
+        if (index < steps) { 
+            const centOffset = (index + 1) * centIncrement;
             const finalCentValue = baseCentValue + centOffset;
-            
-            // Frekansı hesapla ve tuşun verisine kaydet
             const targetHz = centToHz(finalCentValue);
             optKey.dataset.frequency = targetHz;
-            
-            // Etiketi "1", "2", "3" olarak göster
-            optKey.querySelector('span').textContent = (index + 1).toString();
-            
-            // Tuşu göster
+            optKey.querySelector('span').textContent = `+${centOffset.toFixed(1)}c`;
             optKey.classList.remove('key-hidden');
         } else {
-            // "3ses" modundaysak 4. tuşu gizle
             optKey.classList.add('key-hidden');
         }
     });
-    
     optionsPanel.style.display = 'block';
 };
 
@@ -211,17 +277,34 @@ keys.forEach(key => {
         return { noteBase, fullNote, baseCentValue };
     };
 
-    // Masaüstü 'click'
-    key.addEventListener('click', () => {
+    // Masaüstü 'mousedown'
+    key.addEventListener('mousedown', () => {
         if (clickEvent === 'click') { 
             const noteData = getNoteData();
             if (!noteData) return;
             const targetFrequency = centToHz(noteData.baseCentValue);
-            playFrequency(targetFrequency);
+            playFrequency(targetFrequency, noteData.fullNote);
             highlightKey(key);
         }
     });
+
+    // Masaüstü 'mouseup'
+    key.addEventListener('mouseup', () => {
+        if (clickEvent === 'click') { 
+            const noteData = getNoteData();
+            if (!noteData) return;
+            stopNote(noteData.fullNote); // Pedal AÇIK ise bu bir şey yapmayacak
+        }
+    });
     
+    key.addEventListener('mouseleave', () => {
+        if (clickEvent === 'click') { 
+             const noteData = getNoteData();
+            if (!noteData) return;
+            stopNote(noteData.fullNote); // Pedal AÇIK ise bu bir şey yapmayacak
+        }
+    });
+
     // Masaüstü 'contextmenu' (PANELİ AÇ)
     key.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -235,44 +318,72 @@ keys.forEach(key => {
         e.preventDefault(); 
         const noteData = getNoteData();
         if (!noteData) return;
+        
         pressTimer = setTimeout(() => {
             openOptionsPanel(noteData);
             pressTimer = null;
         }, 400); 
+        
+        const targetFrequency = centToHz(noteData.baseCentValue);
+        playFrequency(targetFrequency, noteData.fullNote);
+        highlightKey(key);
     });
 
     key.addEventListener('touchend', (e) => {
         e.preventDefault();
+        
         if (pressTimer) { 
             clearTimeout(pressTimer); 
             pressTimer = null;
-            const noteData = getNoteData();
-            if (!noteData) return;
-            const targetFrequency = centToHz(noteData.baseCentValue);
-            playFrequency(targetFrequency);
-            highlightKey(key);
         }
+        const noteData = getNoteData();
+        if (!noteData) return;
+        stopNote(noteData.fullNote); // Pedal AÇIK ise bu bir şey yapmayacak
     });
 
-    key.addEventListener('touchcancel', () => {
+    key.addEventListener('touchcancel', (e) => {
         if (pressTimer) {
             clearTimeout(pressTimer);
             pressTimer = null;
         }
+        const noteData = getNoteData();
+        if (!noteData) return;
+        stopNote(noteData.fullNote);
     });
 });
 
 // --- 7. Diğer Olay Dinleyicileri ---
 
-// {YENİ} MOD SEÇİCİ DİNLEYİCİLERİ
-mode4SesRadio.addEventListener('change', () => { currentMode = '4ses'; });
-mode3SesRadio.addEventListener('change', () => { currentMode = '3ses'; });
+// MOD SEÇİCİ DİNLEYİCİSİ
+modeButtons.forEach(button => {
+    button.addEventListener(clickEvent, (e) => {
+        modeButtons.forEach(btn => btn.classList.remove('selected'));
+        e.currentTarget.classList.add('selected');
+        currentMode = e.currentTarget.dataset.mode;
+        console.log(`Aralık Modu değiştirildi: ${currentMode}`);
+    });
+});
 
 // SES AYARI DİNLEYİCİSİ
 volumeSlider.addEventListener('input', () => {
-    gainNode.gain.value = volumeSlider.value;
+    masterGainNode.gain.value = volumeSlider.value;
     volumeDisplay.textContent = Math.round(volumeSlider.value * 100);
 });
+
+// {YENİ} SUSTAIN PEDALI DİNLEYİCİSİ
+sustainSwitch.addEventListener('change', () => {
+    // Eğer pedal KAPATILDIYSA
+    if (!sustainSwitch.checked) {
+        console.log("Sustain Pedalı KAPALI. Çalan tüm notalar durduruluyor.");
+        // O an çalan (havada asılı olan) tüm notaları durdur
+        activeNotes.forEach((value, key) => {
+            stopNote(key);
+        });
+    } else {
+        console.log("Sustain Pedalı AÇIK.");
+    }
+});
+
 
 // Oktav Butonları
 octaveDownBtn.addEventListener(clickEvent, (e) => { e.preventDefault(); octaveDown(); });
@@ -281,6 +392,8 @@ octaveUpBtn.addEventListener(clickEvent, (e) => { e.preventDefault(); octaveUp()
 // Klavye (Masaüstü)
 window.addEventListener('keydown', (e) => {
     if (optionsPanel.style.display === 'block') return;
+    if (e.repeat) return; 
+    
     const keyChar = e.key.toLowerCase();
     if (keyChar === 'z') octaveDown();
     else if (keyChar === 'x') octaveUp();
@@ -288,11 +401,21 @@ window.addEventListener('keydown', (e) => {
     const noteBase = keyMap[keyChar];
     if (noteBase) {
         const fullNote = noteBase + currentOctave;
-        if (ABSOLUTE_CENT_MAP[fullNote] !== undefined) { 
+        if (ABSOLUTE_CENT_MAP[fullNote] !== undefined && !activeNotes.has(fullNote)) {
             const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
             const targetFrequency = centToHz(baseCentValue);
-            playFrequency(targetFrequency);
+            playFrequency(targetFrequency, fullNote);
             highlightKey(document.querySelector(`.piano .key[data-note="${noteBase}"]`));
+        }
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    const noteBase = keyMap[e.key.toLowerCase()];
+    if (noteBase) {
+        const fullNote = noteBase + currentOctave;
+        if (ABSOLUTE_CENT_MAP[fullNote] !== undefined) { 
+            stopNote(fullNote); // Pedal AÇIK ise bu bir şey yapmayacak
         }
     }
 });
@@ -308,14 +431,15 @@ optionKeys.forEach(key => {
     key.addEventListener(clickEvent, (e) => {
         e.preventDefault();
         const freqToPlay = parseFloat(key.dataset.frequency);
-        playFrequency(freqToPlay);
+        playFrequency(freqToPlay, null); 
         highlightKey(key);
         console.log(`Panelden çalındı: ${freqToPlay} Hz`);
     });
 });
 
 // --- 8. Başlangıç ---
-gainNode.gain.value = volumeSlider.value;
-loadBaseSounds();
+currentMode = document.querySelector('.mode-btn.selected').dataset.mode;
+masterGainNode.gain.value = volumeSlider.value;
+loadBaseSounds(); // 16 sesi de yükle
 updateKeys(); 
-console.log("HTML Piyano (Cent Motoru + 3/4 Modu) yüklendi.");
+console.log(`HTML Piyano (Nihai Cent Motoru + Sustain Kütüphanesi) yüklendi. Varsayılan mod: ${currentMode}`);

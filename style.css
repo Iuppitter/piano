@@ -29,7 +29,7 @@ body {
 .control-group {
     text-align: center;
     flex: 1; 
-    min-width: 200px; 
+    min-width: 150px; 
 }
 .control-group p {
     margin-top: 0;
@@ -42,31 +42,98 @@ body {
     cursor: pointer;
 }
 
-/* YENİ: Mod Seçici (Radio Button) Stilleri */
+/* Mod Seçici (Segmentli Buton) Stilleri */
 .mode-select {
     display: flex;
     justify-content: center;
-    gap: 10px;
-}
-.mode-select input[type="radio"] {
-    display: none; /* Varsayılan radio'yu gizle */
-}
-.mode-select label {
-    display: inline-block;
-    padding: 8px 15px;
-    background-color: #f9f9f9;
+    flex-wrap: wrap;
+    gap: 0; 
+    border-radius: 8px;
+    overflow: hidden;
     border: 2px solid #555;
-    border-radius: 20px;
+}
+.mode-btn {
+    background-color: #f9f9f9;
+    border: none;
+    border-left: 1px solid #aaa;
+    padding: 8px 12px;
     cursor: pointer;
     font-weight: bold;
-    font-size: 0.9em;
+    font-size: 0.8em;
     transition: background-color 0.2s, color 0.2s;
+    flex-grow: 1;
 }
-/* Seçili olan radio'nun etiket stili */
-.mode-select input[type="radio"]:checked + label {
+.mode-btn:first-child {
+    border-left: none;
+}
+.mode-btn:hover {
+    background-color: #eee;
+}
+.mode-btn.selected {
     background-color: #007bff;
     color: white;
-    border-color: #0056b3;
+}
+
+/* Sustain Pedalı Şalter Stili */
+.sustain-pedal {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+.sustain-pedal input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.pedal-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+.pedal-slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .pedal-slider {
+    background-color: #2196F3;
+}
+input:checked + .pedal-slider:before {
+    transform: translateX(26px);
+}
+
+/* YENİ: Frekans Göstergesi Stilleri */
+.control-group.frequency-display {
+    min-width: 200px; /* Diğer gruplarla hizalı */
+}
+.freq-box {
+    background-color: #222;
+    color: #32CD32; /* Yeşil "dijital" yazı */
+    padding: 10px;
+    border-radius: 8px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.8em;
+    font-weight: bold;
+    border: 2px solid #444;
+}
+#freq-display {
+    display: inline-block;
+    min-width: 100px; /* Sayı değişse de kutu oynamasın */
+    text-align: right;
+    padding-right: 5px;
 }
 /* YENİ BİTİŞ */
 
@@ -99,40 +166,27 @@ body {
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
+/* ... (diğer tüm .key, .white, .black, .options-panel, .orientation-warning stilleri aynı) ... */
 .key {
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    padding-bottom: 15px;
-    font-weight: bold;
-    user-select: none;
+    cursor: pointer; display: flex; justify-content: center;
+    align-items: flex-end; padding-bottom: 15px;
+    font-weight: bold; user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation; 
     -webkit-touch-callout: none;
 }
 .key.white {
-    width: 100px;
-    height: 300px;
-    background-color: white;
-    border-right: 2px solid #333;
-    border-bottom: 2px solid #333;
-    color: #333;
-    z-index: 1;
+    width: 100px; height: 300px; background-color: white;
+    border-right: 2px solid #333; border-bottom: 2px solid #333;
+    color: #333; z-index: 1;
 }
 .key.white:first-child { border-left: 2px solid #333; }
 .key.black {
-    width: 60px;
-    height: 180px;
-    background-color: #333;
-    color: white;
-    position: absolute;
-    z-index: 2;
-    border: 2px solid #333;
-    border-top: none;
+    width: 60px; height: 180px; background-color: #333;
+    color: white; position: absolute; z-index: 2;
+    border: 2px solid #333; border-top: none;
     border-radius: 0 0 5px 5px;
-    align-items: center;
-    padding-bottom: 0; 
+    align-items: center; padding-bottom: 0; 
 }
 .key.black[data-note="C#"] { left: 70px; }
 .key.black[data-note="D#"] { left: 170px; }
@@ -141,85 +195,46 @@ body {
 .key.black[data-note="A#"] { left: 570px; }
 .key:active, .key.playing { background-color: #ccc; }
 .key.black:active, .key.black.playing { background-color: #555; }
-
-
-/* Alt Seçenek Paneli Stilleri */
 #options-panel {
-    display: none;
-    margin-top: 30px; 
-    width: 100%;
-    max-width: 740px;
-    background-color: #2c3e50;
-    color: white;
+    display: none; margin-top: 30px; 
+    width: 100%; max-width: 740px;
+    background-color: #2c3e50; color: white;
     box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-    z-index: 1000;
-    padding: 15px;
-    box-sizing: border-box;
+    z-index: 1000; padding: 15px; box-sizing: border-box;
     border-radius: 8px; 
 }
 .options-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #7f8c8d;
-    padding-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #7f8c8d; padding-bottom: 10px;
 }
 .options-header h3 { margin: 0; }
 #close-options-panel {
-    background: #e74c3c;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
+    background: #e74c3c; color: white; border: none;
+    padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;
 }
 #close-options-panel:hover { background: #c0392b; }
-
 .option-key-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding-top: 20px;
-    flex-wrap: nowrap;
-    overflow-x: auto; 
+    display: flex; justify-content: center; align-items: center;
+    padding-top: 20px; flex-wrap: nowrap; overflow-x: auto; 
 }
 .key.option-key {
-    width: 70px; 
-    height: 150px;
-    font-size: 1.1em;
-    align-items: center;
-    margin: 0 5px;
-    border: 2px solid #333; 
-    flex-shrink: 0; 
+    width: 60px; height: 150px; font-size: 1.0em;
+    align-items: center; margin: 0 5px;
+    border: 2px solid #333; flex-shrink: 0; 
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     -webkit-touch-callout: none;
 }
 .key.option-key:hover { background-color: #eee; }
 .key.option-key:active { background-color: #ccc; }
-
-/* YENİ: "3 ses" modunda 4. tuşu gizlemek için */
-.key.option-key.key-hidden {
-    display: none;
-}
-
-/* Mobil "Yan Çevir" Uyarısı (Değişiklik yok) */
+.key.option-key.key-hidden { display: none; }
 #orientation-warning {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    display: none; position: fixed; top: 0; left: 0;
+    width: 100vw; height: 100vh;
     background-color: rgba(0, 0, 0, 0.95);
-    color: white;
-    z-index: 9999;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    font-size: 1.2em;
+    color: white; z-index: 9999;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; font-size: 1.2em;
 }
 @media (orientation: portrait) and (max-width: 768px) {
     #orientation-warning { display: flex; }

@@ -26,12 +26,28 @@
         </div>
 
         <div class="control-group">
-            <p>Aralık Modu</p>
-            <div class="mode-select">
-                <input type="radio" id="mode-4ses" name="mode" value="4ses" checked>
-                <label for="mode-4ses">4 Ses (20c)</label>
-                <input type="radio" id="mode-3ses" name="mode" value="3ses">
-                <label for="mode-3ses">3 Ses (25c)</label>
+            <p>Aralık Modu (100 Cent / X)</p>
+            <div class="mode-select" id="mode-selector">
+                <button class="mode-btn" data-mode="1ses">1 Ses (50c)</button>
+                <button class="mode-btn" data-mode="2ses">2 Ses (33.3c)</button>
+                <button class="mode-btn" data-mode="3ses">3 Ses (25c)</button>
+                <button class="mode-btn selected" data-mode="4ses">4 Ses (20c)</button>
+                <button class="mode-btn" data-mode="5ses">5 Ses (16.7c)</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <p>Sustain Pedalı</p>
+            <label class="sustain-pedal" for="sustain-switch">
+                <input type="checkbox" id="sustain-switch">
+                <span class="pedal-slider"></span>
+            </label>
+        </div>
+
+        <div class="control-group frequency-display">
+            <p>Çalınan Frekans</p>
+            <div class="freq-box">
+                <span id="freq-display">---</span> Hz
             </div>
         </div>
         </div>
@@ -62,6 +78,7 @@
             <div class="key option-key white" data-option-index="1"><span>2</span></div>
             <div class="key option-key white" data-option-index="2"><span>3</span></div>
             <div class="key option-key white" data-option-index="3"><span>4</span></div>
+            <div class="key option-key white" data-option-index="4"><span>5</span></div>
         </div>
     </div>
 
