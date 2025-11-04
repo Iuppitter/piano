@@ -1,52 +1,43 @@
 // --- 1. Değişkenler ve Ayarlar ---
 const clickEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
 
-// {YENİ} MIDI ÖZEL ATAMA (PANEL) MANTIĞI
-let customMidiMapping = new Map(); // MIDI Notası (örn: 61) -> { freq: 445.44, name: "C4 +20c" }
-let reverseCustomMidiMapping = new Map(); // Frekans (örn: 445.44) -> MIDI Notası (örn: 61)
+let customMidiMapping = new Map(); 
+let reverseCustomMidiMapping = new Map(); 
 let isMidiLearning = false;
-let soundToMap = null; // { freq: 445.44, name: "C4 +20c" }
+let soundToMap = null; 
 
-// {YENİ} Yeni Panel DOM Elementleri
 const midiPanel = document.getElementById('midi-mapping-panel');
 const midiLearnBtn = document.getElementById('midi-learn-btn');
 const midiLearnStatus = document.getElementById('midi-learn-status');
 const midiMappingList = document.getElementById('midi-mapping-list');
 const midiClearBtn = document.getElementById('midi-clear-mappings-btn');
+const toggleMidiPanelBtn = document.getElementById('toggle-midi-panel-btn');
+const closeMidiPanelBtn = document.getElementById('close-midi-panel-btn');
 
+const pianoKeyboard = document.getElementById('piano-keyboard'); 
 
-// {YENİ} Basılı tutma (long-press) için zamanlayıcı
-let pressTimer = null; 
-
-const keys = document.querySelectorAll('.piano .key'); 
-const octaveDisplay = document.getElementById('current-octave-display');
-const octaveUpBtn = document.getElementById('octave-up');
-const octaveDownBtn = document.getElementById('octave-down');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeDisplay = document.getElementById('volume-display');
 const freqDisplay = document.getElementById('freq-display');
 
 const modeSelector = document.getElementById('mode-selector');
 const modeButtons = document.querySelectorAll('.mode-btn');
-let currentMode = '4ses'; // Varsayılan
+let currentMode = '4ses'; 
 
 const sustainSwitch = document.getElementById('sustain-switch');
+const showNoteNamesSwitch = document.getElementById('show-note-names-switch');
 
-// {YENİ} Yeni klavye haritası
 const keyMap = {
-    'q': 'C',  'w': 'C#', 'e': 'D',  'r': 'D#', 't': 'E', 'y': 'F', 
-    'u': 'F#', 'ı': 'G',  'o': 'G#', 'p': 'A', 'ğ': 'A#', 'ü': 'B'
+    'q': 'C4',  'w': 'C#4', 'e': 'D4',  'r': 'D#4', 't': 'E4', 'y': 'F4', 
+    'u': 'F#4', 'ı': 'G4',  'o': 'G#4', 'p': 'A4', 'ğ': 'A#4', 'ü': 'B4'
 };
 
-let currentOctave = 4;
-const minOctave = 0;
-const maxOctave = 8;
+const optionsPanelContainer = document.getElementById('options-panel-container');
 const optionsPanel = document.getElementById('options-panel');
-const optionsNoteName = document.getElementById('options-note-name');
-const closeOptionsButton = document.getElementById('close-options-panel');
-const optionKeys = document.querySelectorAll('.option-key'); // 5 tuş
+const optionsKeyContainer = document.getElementById('options-key-container');
+const optionsPanelTitle = document.getElementById('options-panel-title');
+const optionsPanelCloseBtn = document.getElementById('options-panel-close-btn');
 
-// 'C' tuşuyla paneli açmak için son çalınan notayı sakla
 let lastPlayedNoteData = null;
 
 // --- 2. BEYİN: CENT HARİTASI (A0 = 0 cent) ---
@@ -80,17 +71,13 @@ const CENT_MODES = {
     '5ses': { steps: 5, increment: 100 / 6 }  // 16.67c
 };
 
-// {YENİ} MIDI NOTA HARİTASI (MIDI No -> Nota Adı)
 const midiNoteMap = {};
 (function createMidiMap() {
-    const noteOrder = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    midiNoteMap[21] = 'A0'; midiNoteMap[22] = 'A#0'; midiNoteMap[23] = 'B0';
-    for (let octave = 1; octave <= 7; octave++) {
-        for (let i = 0; i < noteOrder.length; i++) {
-            midiNoteMap[24 + (octave - 1) * 12 + i] = noteOrder[i] + octave;
-        }
+    for (const noteName in ABSOLUTE_CENT_MAP) {
+        const cent = ABSOLUTE_CENT_MAP[noteName];
+        const midiNote = Math.round(cent / 100) + 21;
+        midiNoteMap[midiNote] = noteName;
     }
-    midiNoteMap[108] = 'C8';
 })();
 
 // --- 3. SES YÜKLEME VE BAĞLAM ---
@@ -101,9 +88,8 @@ let baseSoundBuffers = {
 };
 const masterGainNode = audioContext.createGain();
 masterGainNode.connect(audioContext.destination);
-
 let activeNotes = new Map();
-
+// ... (loadSound ve loadBaseSounds değişmedi) ...
 function loadSound(url) {
     return fetch(url)
         .then(response => {
@@ -112,7 +98,6 @@ function loadSound(url) {
         })
         .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer));
 }
-
 function loadBaseSounds() {
     const loadPromises = [];
     for (const noteKey in BASE_NOTES) {
@@ -128,7 +113,6 @@ function loadBaseSounds() {
                 .catch(err => ({ type: 'sustain', key: noteKey, buffer: null, error: err.message }))
         );
     }
-
     Promise.all(loadPromises)
         .then(results => {
             const missingFiles = [];
@@ -146,7 +130,7 @@ function loadBaseSounds() {
         });
 }
 
-// --- 4. SES ÇALMA (SUSTAIN MANTIKLI) ---
+// --- 4. SES ÇALMA (SUSTAIN MANTIĞI) ---
 function centToHz(centValue) {
     return A0_HZ * Math.pow(2, centValue / 1200);
 }
@@ -157,7 +141,8 @@ function stopNote(fullNote) {
         const now = audioContext.currentTime;
         
         const sustainDuration = 7.0;
-        const releaseDuration = 1.0; 
+        // {GÜNCELLENDİ} 0.6 saniye
+        const releaseDuration = 0.6; 
 
         const duration = sustainSwitch.checked ? sustainDuration : releaseDuration;
         
@@ -173,19 +158,14 @@ function stopNote(fullNote) {
         }, duration * 1000 + 100);
     }
 }
-
-// {GÜNCELLENDİ} MIDI velocity (hız) desteği eklendi
 function playFrequency(targetFrequency, fullNote = null, velocity = 127) {
     if (targetFrequency <= 0.0) { return; }
     if (fullNote && activeNotes.has(fullNote)) {
         stopNote(fullNote);
     }
-
     freqDisplay.textContent = targetFrequency.toFixed(2);
-
     const sampleSetKey = sustainSwitch.checked ? 'sustain' : 'normal';
     const sampleSet = baseSoundBuffers[sampleSetKey];
-
     let bestSampleKey = null;
     let minDiff = Infinity;
     for (const noteKey in sampleSet) {
@@ -202,17 +182,13 @@ function playFrequency(targetFrequency, fullNote = null, velocity = 127) {
         console.error(`Hiç temel ses dosyası ('${sampleSetKey}' setinde) yüklenemedi!`);
         return;
     }
-    
     const baseSoundBuffer = sampleSet[bestSampleKey];
     const baseFreq = BASE_NOTES[bestSampleKey].freq;
     const playbackRate = targetFrequency / baseFreq;
     const source = audioContext.createBufferSource();
     const noteGain = audioContext.createGain(); 
-    
-    // {YENİ} Velocity (hız) ayarı
     const noteVolume = velocity / 127.0;
     noteGain.gain.setValueAtTime(noteVolume, audioContext.currentTime);
-
     source.buffer = baseSoundBuffer;
     source.playbackRate.value = playbackRate;
     source.connect(noteGain);
@@ -232,159 +208,244 @@ function highlightKey(keyElement) {
     }
 }
 
-// --- 5. OKTAV GÜNCELLEME ---
-function updateKeys() {
-    octaveDisplay.textContent = currentOctave;
-    keys.forEach(key => {
-        const noteBase = key.dataset.note; 
-        const fullNote = noteBase + currentOctave;
-        if (ABSOLUTE_CENT_MAP[fullNote] === undefined) {
-            key.querySelector('span').textContent = '-';
-            key.dataset.fullNote = null;
+// --- BÖLÜM 5: 88-TUŞ PİYANO OLUŞTURMA ---
+function generatePianoKeys() {
+    pianoKeyboard.innerHTML = ''; 
+    
+    const whiteKeyWidth = 32; 
+    const blackKeyWidth = 22;
+    const blackKeyHeight = "120px";
+    
+    let whiteKeyIndex = 0;
+    
+    for (const noteName in ABSOLUTE_CENT_MAP) {
+        const key = document.createElement('div');
+        const span = document.createElement('span');
+        span.textContent = noteName;
+        key.appendChild(span);
+        
+        key.dataset.note = noteName;
+        const isBlack = noteName.includes('#');
+        
+        if (isBlack) {
+            key.className = 'key black';
+            key.style.height = blackKeyHeight;
+            key.style.left = `${(whiteKeyIndex * whiteKeyWidth) - (blackKeyWidth / 2)}px`;
         } else {
-            key.querySelector('span').textContent = fullNote;
-            key.dataset.fullNote = fullNote;
+            key.className = 'key white';
+            key.style.left = `${whiteKeyIndex * whiteKeyWidth}px`;
+            whiteKeyIndex++; 
         }
-    });
-    console.log(`Oktav değiştirildi: ${currentOctave}`);
-}
-function octaveDown() {
-    currentOctave = Math.max(minOctave, currentOctave - 1);
-    updateKeys();
-}
-function octaveUp() {
-    currentOctave = Math.min(maxOctave, currentOctave + 1);
-    updateKeys();
+        
+        pianoKeyboard.appendChild(key);
+    }
+    pianoKeyboard.style.width = `${whiteKeyIndex * whiteKeyWidth}px`;
 }
 
-// === {YENİ} PANEL AÇMA MANTIĞI (BASİT ETİKETLİ + 'C' TUŞU DÜZELTMESİ) ===
+
+// === {GÜNCELLENDİ} MİKROTONAL PANEL MANTIĞI ===
+let currentOpenPanelNote = null; 
+
 function closeOptionsPanel() {
-    optionsPanel.style.display = 'none';
+    optionsPanelContainer.style.display = 'none'; 
+    currentOpenPanelNote = null;
 }
 
-const openOptionsPanel = (noteData) => {
-    if (optionsPanel.style.display === 'block' && optionsNoteName.textContent === noteData.fullNote) {
+function openOptionsPanel(noteData) {
+    if (optionsPanelContainer.style.display === 'block' && currentOpenPanelNote === noteData.fullNote) {
+        closeOptionsPanel();
         return;
     }
     
+    optionsKeyContainer.innerHTML = ''; 
+    
     const fullNote = noteData.fullNote;
     const baseCentValue = noteData.baseCentValue;
-    optionsNoteName.textContent = fullNote;
+    currentOpenPanelNote = fullNote; 
+    
+    optionsPanelTitle.textContent = `${fullNote} Özel Sesleri`;
+    
     const mode = CENT_MODES[currentMode];
     const steps = mode.steps; 
     const centIncrement = mode.increment;
+    const whiteKeyWidth = 32; // CSS ile aynı olmalı
 
-    optionKeys.forEach((optKey, index) => {
-        if (index < steps) { 
-            const centOffset = (index + 1) * centIncrement;
-            const finalCentValue = baseCentValue + centOffset;
-            const targetHz = centToHz(finalCentValue);
-            
-            optKey.dataset.frequency = targetHz;
-            optKey.querySelector('span').textContent = (index + 1).toString();
-            optKey.classList.remove('key-hidden');
-        } else {
-            optKey.classList.add('key-hidden');
-        }
-    });
+    for (let i = 0; i < steps; i++) {
+        const centOffset = (i + 1) * centIncrement;
+        const finalCentValue = baseCentValue + centOffset;
+        const targetHz = centToHz(finalCentValue);
+        
+        const key = document.createElement('div');
+        key.className = 'key white'; 
+        key.dataset.optionIndex = i;
+        key.dataset.frequency = targetHz;
+        
+        const span = document.createElement('span');
+        span.textContent = (i + 1).toString();
+        key.appendChild(span);
+        
+        optionsKeyContainer.appendChild(key);
+    }
     
-    optionsPanel.style.display = 'block';
+    // {YENİ} Panelin içindeki .piano'nun genişliğini ayarla (ortalamak için)
+    optionsKeyContainer.style.width = `${steps * whiteKeyWidth}px`;
+    
+    optionsPanelContainer.style.display = 'block';
 };
 
-// --- 6. Olay Dinleyicileri (Piyano Tuşları) ---
-keys.forEach(key => {
+// --- {GÜNCELLENDİ} BÖLÜM 6: Olay Dinleyicileri (Piyano Tuşları - DELEGATION) ---
+const activePresses = new Map(); 
+
+const getNoteDataFromElement = (el) => {
+    const keyElement = el.closest('.key');
+    if (!keyElement) return null; 
+
+    if (keyElement.dataset.optionIndex !== undefined) {
+        return {
+            isOptionKey: true,
+            noteEl: keyElement,
+            frequency: parseFloat(keyElement.dataset.frequency),
+            index: parseInt(keyElement.dataset.optionIndex)
+        };
+    }
+
+    const fullNote = keyElement.dataset.note;
+    if (!fullNote || ABSOLUTE_CENT_MAP[fullNote] === undefined) return null;
     
-    let pressTimer = null; 
-    let noteData = null; 
-
-    const getNoteData = (keyElement) => {
-        const fullNote = keyElement.dataset.fullNote;
-        if (!fullNote || ABSOLUTE_CENT_MAP[fullNote] === undefined) return null;
-        const noteBase = keyElement.dataset.note;
-        const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
-        return { noteBase, fullNote, baseCentValue };
+    const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
+    return {
+        isOptionKey: false,
+        noteEl: keyElement, 
+        fullNote, 
+        baseCentValue
     };
+};
 
-    // DOKUNMA BAŞLANGICI
-    const handleNotePress = (e) => {
-        e.preventDefault(); 
-        noteData = getNoteData(e.currentTarget);
-        if (!noteData) return;
+// {DÜZELTME} Sağ tık mantığı düzeltildi
+const handlePianoPress = (e, isContextMenu = false) => {
+    e.preventDefault();
+    const noteData = getNoteDataFromElement(e.target);
+    if (!noteData) return;
 
-        // {YENİ} MIDI ÖĞRENME MODU KONTROLÜ
+    const pressId = e.touches ? e.changedTouches[0].identifier : 'mouse';
+
+    // --- Panel Tuşuna Basıldı ---
+    if (noteData.isOptionKey) {
         if (isMidiLearning) {
-            const freq = centToHz(noteData.baseCentValue);
-            selectSoundForMidiLearn(freq, noteData.fullNote); // Ana notayı öğrenmek için seç
-            return; // Sesi çalma, sadece seç
-        }
-
-        lastPlayedNoteData = noteData; 
-
-        // Sesi HEMEN çal
-        const targetFrequency = centToHz(noteData.baseCentValue);
-        playFrequency(targetFrequency, noteData.fullNote, 127); // Tuşla basmayı max velocity (127) say
-        highlightKey(e.currentTarget);
-
-        // Paneli açmak için zamanlayıcıyı başlat
-        pressTimer = setTimeout(() => {
-            openOptionsPanel(noteData);
-            pressTimer = null; 
-        }, 400); 
-    };
-
-    // DOKUNMA BİTİŞİ
-    const handleNoteRelease = (e) => {
-        e.preventDefault();
-        
-        if (pressTimer) { 
-            clearTimeout(pressTimer); 
-            pressTimer = null;
+            const baseNoteName = currentOpenPanelNote || 'Note';
+            const soundName = `${baseNoteName} +${noteData.index + 1}`;
+            selectSoundForMidiLearn(noteData.frequency, soundName);
+            return;
         }
         
-        if (noteData) {
-            stopNote(noteData.fullNote);
-            noteData = null; 
-        }
-    };
+        if (isContextMenu) return; // Panel tuşlarında sağ tıkı engelle
 
-    // Masaüstü
-    key.addEventListener('mousedown', (e) => {
-        if (clickEvent === 'click' && e.button === 0) { 
-            handleNotePress(e);
+        playFrequency(noteData.frequency, `panel-${noteData.index}`, 127);
+        highlightKey(noteData.noteEl);
+        
+        if (currentOpenPanelNote) {
+             lastPlayedNoteData = { 
+                fullNote: currentOpenPanelNote, 
+                baseCentValue: ABSOLUTE_CENT_MAP[currentOpenPanelNote] 
+            };
         }
-    });
-    key.addEventListener('mouseup', (e) => {
-        if (clickEvent === 'click' && e.button === 0) { 
-            handleNoteRelease(e);
-        }
-    });
-    key.addEventListener('mouseleave', (e) => {
-        if (clickEvent === 'click') { 
-            if (pressTimer) {
-                clearTimeout(pressTimer);
-                pressTimer = null;
-            }
-            if (noteData) {
-                stopNote(noteData.fullNote);
-                noteData = null;
-            }
-        }
-    });
+        activePresses.set(pressId, { ...noteData, fullNote: `panel-${noteData.index}` });
+        return;
+    }
+    
+    // --- Ana Piyano Tuşuna Basıldı ---
+    
+    // {YENİ} Her zaman son notayı güncelle (sağ tık dahil)
+    lastPlayedNoteData = noteData; 
 
-    // Masaüstü 'contextmenu' (Sağ Tık)
-    key.addEventListener('contextmenu', (e) => {
-        e.preventDefault(); 
-        if (isMidiLearning) return; // Öğrenme modundayken sağ tıkla panel açma
-        const noteData = getNoteData(e.currentTarget);
-        if (!noteData) return;
+    if (isMidiLearning) {
+        const freq = centToHz(noteData.baseCentValue);
+        selectSoundForMidiLearn(freq, noteData.fullNote);
+        return;
+    }
+
+    // {DÜZELTME} Sağ tık ise, SADECE paneli aç/kapat ve çık
+    if (isContextMenu) {
         openOptionsPanel(noteData);
-    });
+        return;
+    }
 
-    // Mobil (Dokunmatik)
-    key.addEventListener('touchstart', handleNotePress);
-    key.addEventListener('touchend', handleNoteRelease);
-    key.addEventListener('touchcancel', handleNoteRelease);
+    // Sol Tık veya Dokunma
+    if (activePresses.has(pressId)) return; 
+
+    playFrequency(centToHz(noteData.baseCentValue), noteData.fullNote, 127);
+    highlightKey(noteData.noteEl);
+
+    // Uzun basma
+    const timer = setTimeout(() => {
+        openOptionsPanel(noteData);
+        if (activePresses.has(pressId)) {
+            activePresses.get(pressId).pressTimer = null;
+        }
+    }, 400); 
+    
+    activePresses.set(pressId, { ...noteData, pressTimer: timer });
+};
+
+const handlePianoRelease = (e) => {
+    e.preventDefault();
+    const pressId = e.touches ? e.changedTouches[0].identifier : 'mouse';
+    const pressData = activePresses.get(pressId);
+    
+    if (!pressData) return;
+
+    if (pressData.pressTimer) {
+        clearTimeout(pressData.pressTimer);
+    }
+    
+    stopNote(pressData.fullNote);
+    activePresses.delete(pressId);
+};
+
+const handlePianoLeave = (e) => {
+    const pressId = 'mouse';
+    const pressData = activePresses.get(pressId);
+    if (!pressData) return;
+    
+    if (e.buttons === 1) { 
+         if (pressData.pressTimer) {
+            clearTimeout(pressData.pressTimer);
+        }
+        stopNote(pressData.fullNote);
+        activePresses.delete(pressId);
+    }
+};
+
+// Olayları ana piyano konteynerine devret
+pianoKeyboard.addEventListener('mousedown', (e) => {
+    if (clickEvent === 'click' && e.button === 0) handlePianoPress(e);
 });
+pianoKeyboard.addEventListener('mouseup', (e) => {
+    if (clickEvent === 'click' && e.button === 0) handlePianoRelease(e);
+});
+pianoKeyboard.addEventListener('mouseleave', (e) => {
+    if (clickEvent === 'click') handlePianoLeave(e);
+});
+pianoKeyboard.addEventListener('touchstart', (e) => handlePianoPress(e));
+pianoKeyboard.addEventListener('touchend', (e) => handlePianoRelease(e));
+pianoKeyboard.addEventListener('touchcancel', (e) => handlePianoRelease(e));
+pianoKeyboard.addEventListener('contextmenu', (e) => handlePianoPress(e, true)); // Sağ tık
+
+// Olayları mikrotonal panel konteynerine devret
+optionsKeyContainer.addEventListener('mousedown', (e) => {
+    if (clickEvent === 'click' && e.button === 0) handlePianoPress(e);
+});
+optionsKeyContainer.addEventListener('mouseup', (e) => {
+    if (clickEvent === 'click' && e.button === 0) handlePianoRelease(e);
+});
+optionsKeyContainer.addEventListener('mouseleave', (e) => {
+    if (clickEvent === 'click') handlePianoLeave(e);
+});
+optionsKeyContainer.addEventListener('touchstart', (e) => handlePianoPress(e));
+optionsKeyContainer.addEventListener('touchend', (e) => handlePianoRelease(e));
+optionsKeyContainer.addEventListener('touchcancel', (e) => handlePianoRelease(e));
+optionsKeyContainer.addEventListener('contextmenu', (e) => e.preventDefault()); 
+
 
 // --- 7. Diğer Olay Dinleyicileri ---
 
@@ -395,6 +456,9 @@ modeButtons.forEach(button => {
         e.currentTarget.classList.add('selected');
         currentMode = e.currentTarget.dataset.mode;
         console.log(`Aralık Modu değiştirildi: ${currentMode}`);
+        if (currentOpenPanelNote && lastPlayedNoteData) {
+            openOptionsPanel(lastPlayedNoteData);
+        }
     });
 });
 
@@ -416,123 +480,58 @@ sustainSwitch.addEventListener('change', () => {
     }
 });
 
-// Oktav Butonları
-octaveDownBtn.addEventListener(clickEvent, (e) => { e.preventDefault(); octaveDown(); });
-octaveUpBtn.addEventListener(clickEvent, (e) => { e.preventDefault(); octaveUp(); });
+// NOTA İSMİ GÖSTER DİNLEYİCİSİ
+showNoteNamesSwitch.addEventListener('change', () => {
+    if (showNoteNamesSwitch.checked) {
+        document.body.classList.remove('hide-note-names');
+    } else {
+        document.body.classList.add('hide-note-names');
+    }
+});
 
 // Klavye (Masaüstü)
 window.addEventListener('keydown', (e) => {
     if (e.repeat) return; 
-    
     const keyChar = e.key.toLowerCase();
     
     if (keyChar === 'c') {
         if (lastPlayedNoteData) {
-            openOptionsPanel(lastPlayedNoteData);
+            openOptionsPanel(lastPlayedNoteData); 
         }
-        return; 
-    }
-
-    if (keyChar === 'z') {
-        octaveDown();
-        return; 
-    }
-    else if (keyChar === 'x') {
-        octaveUp();
-        return; 
+        return;
     }
     
-    const noteBase = keyMap[keyChar];
-    if (noteBase) {
-        const fullNote = noteBase + currentOctave;
+    const fullNote = keyMap[keyChar];
+    if (fullNote) {
+        // {KALDIRILDI} closeOptionsPanel(); 
         if (ABSOLUTE_CENT_MAP[fullNote] !== undefined && !activeNotes.has(fullNote)) { 
             const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
             const targetFrequency = centToHz(baseCentValue);
-            
-            // {GÜNCELLENDİ} Klavye de max velocity (127) ile çalar
-            playFrequency(targetFrequency, fullNote, 127); 
-            highlightKey(document.querySelector(`.piano .key[data-note="${noteBase}"]`));
-            
-            lastPlayedNoteData = { noteBase, fullNote, baseCentValue };
+            playFrequency(targetFrequency, fullNote, 127);
+            const keyElement = document.querySelector(`.piano .key[data-note="${fullNote}"]`);
+            highlightKey(keyElement);
+            lastPlayedNoteData = { noteBase: fullNote.replace(/\d/g, ''), fullNote, baseCentValue };
         }
     }
 });
 
 window.addEventListener('keyup', (e) => {
     const keyChar = e.key.toLowerCase();
-    if (keyChar === 'c' || keyChar === 'z' || keyChar === 'x') return; 
-
-    const noteBase = keyMap[keyChar];
-    if (noteBase) {
-        const fullNote = noteBase + currentOctave;
+    if (keyChar === 'c') return; 
+    const fullNote = keyMap[keyChar];
+    if (fullNote) {
         if (ABSOLUTE_CENT_MAP[fullNote] !== undefined) { 
             stopNote(fullNote);
         }
     }
 });
 
-// Panel Kapatma Düğmesi
-closeOptionsButton.addEventListener(clickEvent, (e) => {
-    e.preventDefault();
-    closeOptionsPanel();
-});
-
-// Panel Seçenek Tuşları
-optionKeys.forEach((key, index) => { // {GÜNCELLENDİ} index eklendi
-    let panelNoteId = null; 
-    
-    const handlePanelPress = (e) => {
-        e.preventDefault();
-        const freqToPlay = parseFloat(key.dataset.frequency);
-
-        // {YENİ} MIDI ÖĞRENME MODU KONTROLÜ
-        if (isMidiLearning) {
-            const baseNoteName = optionsNoteName.textContent;
-            const soundName = `${baseNoteName} +${index + 1}`; // örn: "C4 +1"
-            selectSoundForMidiLearn(freqToPlay, soundName);
-            return; // Sesi çalma, sadece seç
-        }
-
-        panelNoteId = `panel-${e.currentTarget.dataset.optionIndex}`; 
-        
-        playFrequency(freqToPlay, panelNoteId, 127); // max velocity
-        highlightKey(key);
-        
-        lastPlayedNoteData = { 
-            fullNote: optionsNoteName.textContent, 
-            baseCentValue: ABSOLUTE_CENT_MAP[optionsNoteName.textContent] 
-        };
-    };
-    
-    const handlePanelRelease = (e) => {
-        e.preventDefault();
-        if (panelNoteId) {
-            stopNote(panelNoteId);
-            panelNoteId = null;
-        }
-    };
-    
-    key.addEventListener('mousedown', (e) => {
-        if (clickEvent === 'click' && e.button === 0) handlePanelPress(e);
-    });
-    key.addEventListener('mouseup', (e) => {
-        if (clickEvent === 'click' && e.button === 0) handlePanelRelease(e);
-    });
-    key.addEventListener('mouseleave', (e) => {
-        if (clickEvent === 'click') handlePanelRelease(e);
-    });
-    
-    key.addEventListener('touchstart', handlePanelPress);
-    key.addEventListener('touchend', handlePanelRelease);
-    key.addEventListener('touchcancel', handlePanelRelease);
-
-    // {SİLİNDİ} Sağ tıkla öğrenme mantığı kaldırıldı
-});
+// {YENİ} Özel Panel Kapatma Düğmesi
+optionsPanelCloseBtn.addEventListener('click', closeOptionsPanel);
 
 
-// --- {YENİ VE TAM GÜNCELLEME} WEB MIDI API & MAP PANEL MANTIĞI ---
-
-// 1. MIDI Kurulum
+// --- WEB MIDI API & MAP PANEL MANTIĞI ---
+// (handleMIDIMessage'dan closeOptionsPanel() kaldırıldı)
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
         navigator.requestMIDIAccess({ sysex: false })
@@ -541,7 +540,6 @@ function setupMIDI() {
         console.warn("Tarayıcınız Web MIDI API'sini desteklemiyor.");
     }
 }
-
 function onMIDISuccess(midiAccess) {
     console.log("Web MIDI API başarıyla yüklendi. (Panel Modu Aktif)");
     const inputs = midiAccess.inputs.values();
@@ -559,53 +557,40 @@ function onMIDISuccess(midiAccess) {
         }
     };
 }
-
 function onMIDIFailure() {
     console.error('MIDI erişimi reddedildi.');
     midiLearnStatus.textContent = 'MIDI erişimi reddedildi!';
     midiLearnStatus.style.color = '#e74c3c';
 }
-
-// 2. Ana MIDI Mesaj İşleyici
 function handleMIDIMessage(message) {
     const [command, note, velocity] = message.data;
     const commandType = command & 0xF0;
-
-    // --- DURUM 1: MIDI ÖĞRENME MODU AKTİF ---
     if (isMidiLearning && soundToMap && commandType === 0x90 && velocity > 0) {
-        // STEP 2: Kullanıcı bir MIDI tuşuna bastı
         addMapping(note, soundToMap);
         return; 
     }
-
-    // --- DURUM 2: STANDART ÇALMA MODU ---
     const customSound = customMidiMapping.get(note);
-
-    if (commandType === 0x90 && velocity > 0) { // Note On
+    if (commandType === 0x90 && velocity > 0) {
+        // {KALDIRILDI} closeOptionsPanel(); 
         if (customSound) {
-            // ÖZEL ATANMIŞ SESİ ÇAL
             playFrequency(customSound.freq, `midi-${note}`, velocity);
         } else {
-            // STANDART SESİ ÇAL (Fallback)
             const noteName = midiNoteMap[note];
             if (noteName && ABSOLUTE_CENT_MAP[noteName] !== undefined) {
                 const baseCentValue = ABSOLUTE_CENT_MAP[noteName];
                 const targetFrequency = centToHz(baseCentValue);
                 playFrequency(targetFrequency, noteName, velocity); 
-                
                 lastPlayedNoteData = { 
                     noteBase: noteName.replace(/\d/, ''),
                     fullNote: noteName, 
                     baseCentValue: baseCentValue 
                 };
-                
-                const noteBase = noteName.replace(/\d/, '');
-                const keyElement = document.querySelector(`.piano .key[data-note="${noteBase}"]`);
-                if (keyElement) highlightKey(keyElement);
+                const keyElement = document.querySelector(`.piano .key[data-note="${noteName}"]`);
+                highlightKey(keyElement);
             }
         }
     } 
-    else if (commandType === 0x80 || (commandType === 0x90 && velocity === 0)) { // Note Off
+    else if (commandType === 0x80 || (commandType === 0x90 && velocity === 0)) {
         if (customSound) {
             stopNote(`midi-${note}`);
         } else {
@@ -614,14 +599,11 @@ function handleMIDIMessage(message) {
         }
     }
 }
-
-// 3. MIDI Panel Kontrol Fonksiyonları
+// ... (startMidiLearn, cancelMidiLearn, vb. değişmedi) ...
 function startMidiLearn() {
     if (isMidiLearning) {
-        // Zaten açıksa, iptal et
         cancelMidiLearn();
     } else {
-        // Öğrenmeyi başlat (STEP 1)
         isMidiLearning = true;
         soundToMap = null;
         midiLearnBtn.textContent = 'CANCEL LEARN';
@@ -629,7 +611,6 @@ function startMidiLearn() {
         midiLearnStatus.textContent = 'STEP 1: Click any sound on the web piano...';
     }
 }
-
 function cancelMidiLearn() {
     isMidiLearning = false;
     soundToMap = null;
@@ -637,50 +618,36 @@ function cancelMidiLearn() {
     midiLearnBtn.classList.remove('learning');
     midiLearnStatus.textContent = 'Click \'Start\' to map a sound.';
 }
-
 function selectSoundForMidiLearn(freq, name) {
     if (!isMidiLearning) return;
-    
-    // STEP 1 tamamlandı
     soundToMap = { freq, name };
     midiLearnStatus.textContent = `STEP 2: Press a key on your MIDI keyboard to map "${name}"...`;
-    // 'isMidiLearning' hala true, şimdi 'handleMIDIMessage' bir tuş bekliyor
 }
-
 function addMapping(midiNote, soundData) {
-    // Bu MIDI tuşu veya bu frekans zaten atanmışsa, eski atamaları temizle
     if (customMidiMapping.has(midiNote)) {
-        removeMapping(midiNote, false); // UI güncellemesi yapma
+        removeMapping(midiNote, false); 
     }
     if (reverseCustomMidiMapping.has(soundData.freq)) {
         const oldMidiNote = reverseCustomMidiMapping.get(soundData.freq);
-        removeMapping(oldMidiNote, false); // UI güncellemesi yapma
+        removeMapping(oldMidiNote, false);
     }
-
-    // Yeni atamayı yap
     customMidiMapping.set(midiNote, soundData);
     reverseCustomMidiMapping.set(soundData.freq, midiNote);
-    
     console.log(`BAŞARILI ATAMA: MIDI ${midiNote} -> ${soundData.name} (${soundData.freq.toFixed(2)} Hz)`);
-
-    // Modu sıfırla ve UI'ı güncelle
     cancelMidiLearn();
     updateMappingListUI();
 }
-
 function removeMapping(midiNote, doUpdateUI = true) {
     if (customMidiMapping.has(midiNote)) {
         const soundData = customMidiMapping.get(midiNote);
         customMidiMapping.delete(midiNote);
         reverseCustomMidiMapping.delete(soundData.freq);
         console.log(`Atama kaldırıldı: MIDI ${midiNote}`);
-        
         if (doUpdateUI) {
             updateMappingListUI();
         }
     }
 }
-
 function clearAllMappings() {
     if (confirm('Are you sure you want to delete all MIDI mappings?')) {
         customMidiMapping.clear();
@@ -689,36 +656,27 @@ function clearAllMappings() {
         console.log('Tüm MIDI atamaları temizlendi.');
     }
 }
-
 function updateMappingListUI() {
-    midiMappingList.innerHTML = ''; // Listeyi temizle
-    
+    midiMappingList.innerHTML = ''; 
     if (customMidiMapping.size === 0) {
         midiMappingList.innerHTML = '<li>No mappings yet.</li>';
         return;
     }
-
-    // Sıralı göstermek için MIDI notasına göre sırala
     const sortedMappings = [...customMidiMapping.entries()].sort((a, b) => a[0] - b[0]);
-
     for (const [midiNote, soundData] of sortedMappings) {
         const li = document.createElement('li');
-        
         const nameSpan = document.createElement('span');
         nameSpan.className = 'midi-map-name';
         nameSpan.textContent = `MIDI ${midiNote} → ${soundData.name}`;
         nameSpan.title = `${soundData.name} (${soundData.freq.toFixed(2)} Hz)`;
-        
         const removeBtn = document.createElement('button');
         removeBtn.className = 'midi-map-remove-btn';
         removeBtn.textContent = 'X';
         removeBtn.dataset.midiNote = midiNote;
-        
         removeBtn.addEventListener('click', (e) => {
             const noteToRemove = parseInt(e.currentTarget.dataset.midiNote);
             removeMapping(noteToRemove);
         });
-        
         li.appendChild(nameSpan);
         li.appendChild(removeBtn);
         midiMappingList.appendChild(li);
@@ -729,13 +687,27 @@ function updateMappingListUI() {
 // --- 8. Başlangıç ---
 currentMode = document.querySelector('.mode-btn.selected').dataset.mode;
 masterGainNode.gain.value = volumeSlider.value;
-loadBaseSounds(); // 16 sesi de yükle
-updateKeys(); 
+loadBaseSounds(); 
 
-// {YENİ} MIDI MAP MANTIĞI BAŞLANGIÇ
+generatePianoKeys(); // Piyanoyu oluştur
+
+if (!showNoteNamesSwitch.checked) {
+    document.body.classList.add('hide-note-names');
+}
+
 setupMIDI(); 
 midiLearnBtn.addEventListener('click', startMidiLearn);
 midiClearBtn.addEventListener('click', clearAllMappings);
 updateMappingListUI();
 
-console.log(`HTML Piyano (Özel MIDI Panel Modu) yüklendi. Varsayılan mod: ${currentMode}`);
+// {GÜNCELLENDİ} MIDI Panel Aç/Kapat mantığı
+toggleMidiPanelBtn.addEventListener('click', () => {
+    document.body.classList.add('midi-panel-open');
+});
+closeMidiPanelBtn.addEventListener('click', () => {
+    document.body.classList.remove('midi-panel-open');
+    cancelMidiLearn(); 
+});
+
+
+console.log(`HTML Piyano (88-Tuş Modu) yüklendi. Varsayılan mod: ${currentMode}`);

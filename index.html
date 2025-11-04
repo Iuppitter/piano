@@ -8,8 +8,13 @@
 </head>
 <body>
 
+    <button id="toggle-midi-panel-btn">MIDI Mapping</button>
+
     <div id="midi-mapping-panel">
-        <h3>MIDI Mapping</h3>
+        <div class="midi-panel-header">
+            <h3>MIDI Mapping</h3>
+            <button id="close-midi-panel-btn">Kapat (X)</button>
+        </div>
         
         <button id="midi-learn-btn">Start MIDI Learn</button>
         
@@ -23,16 +28,9 @@
         <button id="midi-clear-mappings-btn">Clear All Mappings</button>
     </div>
     <h1>Mucidi Murat Can Akyol</h1>
-    <p>Oktav değiştirmek için + ve - butonlarını (veya klavyeden Z/X) kullanın.</p>
+    <p>Klavyenizdeki 'Q, W, E...' tuşları C4-B4 oktavını çalar.</p>
     
     <div class="controls-container">
-        <div class="control-group">
-            <p>Geçerli Oktav: <span id="current-octave-display">4</span></p>
-            <div class="octave-controls">
-                <button id="octave-down" class="octave-btn">−</button>
-                <button id="octave-up" class="octave-btn">+</button>
-            </div>
-        </div>
         
         <div class="control-group">
             <p>Ses Yüksekliği: <span id="volume-display">100</span>%</p>
@@ -58,6 +56,14 @@
             </label>
         </div>
 
+        <div class="control-group">
+            <p>Nota İsmi Göster</p>
+            <label class="sustain-pedal" for="show-note-names-switch">
+                <input type="checkbox" id="show-note-names-switch" checked>
+                <span class="pedal-slider"></span>
+            </label>
+        </div>
+
         <div class="control-group frequency-display">
             <p>Çalınan Frekans</p>
             <div class="freq-box">
@@ -66,36 +72,21 @@
         </div>
     </div>
 
-    <div class="piano">
-        <div class="key white" data-note="C" data-key="a"><span>C</span></div>
-        <div class="key white" data-note="D" data-key="s"><span>D</span></div>
-        <div class="key white" data-note="E" data-key="d"><span>E</span></div>
-        <div class="key white" data-note="F" data-key="f"><span>F</span></div>
-        <div class="key white" data-note="G" data-key="g"><span>G</span></div>
-        <div class="key white" data-note="A" data-key="h"><span>A</span></div>
-        <div class="key white" data-note="B" data-key="j"><span>B</span></div>
-        <div class="key black" data-note="C#" data-key="w"><span>C#</span></div>
-        <div class="key black" data-note="D#" data-key="e"><span>D#</span></div>
-        <div class="key black" data-note="F#" data-key="t"><span>F#</span></div>
-        <div class="key black" data-note="G#" data-key="y"><span>G#</span></div>
-        <div class="key black" data-note="A#" data-key="u"><span>A#</span></div>
+    <div class="piano-container-scroll">
+        <div class="piano" id="piano-keyboard">
+            </div>
     </div>
-
-    <div id="options-panel">
-        <div class="options-header">
-            <h3>Seçenekler (<span id="options-note-name"></span>)</h3>
-            <button id="close-options-panel">Kapat (X)</button>
-        </div>
-        <p>Lütfen bir seçenek seçin:</p>
-        <div class="option-key-container">
-            <div class="key option-key white" data-option-index="0"><span>1</span></div>
-            <div class="key option-key white" data-option-index="1"><span>2</span></div>
-            <div class="key option-key white" data-option-index="2"><span>3</span></div>
-            <div class="key option-key white" data-option-index="3"><span>4</span></div>
-            <div class="key option-key white" data-option-index="4"><span>5</span></div>
+    
+    <div id="options-panel-container">
+        <div class="piano-container-scroll" id="options-panel"> 
+            
+            <span id="options-panel-title"></span>
+            <button id="options-panel-close-btn">X</button>
+            
+            <div class="piano" id="options-key-container">
+                </div>
         </div>
     </div>
-
     <div id="orientation-warning">
         <p>Lütfen bu uygulamayı kullanmak için<br>telefonunuzu yan çevirin.</p>
     </div>
