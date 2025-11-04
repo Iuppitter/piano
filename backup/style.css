@@ -16,20 +16,20 @@ body {
     p { font-size: 0.9em; text-align: center; }
 }
 
-/* Kontrol Paneli Konteyneri */
+/* YENİ: Kontrol Paneli Konteyneri */
 .controls-container {
     display: flex;
-    flex-wrap: wrap; 
+    flex-wrap: wrap; /* Mobilde alt alta geçer */
     justify-content: center;
-    gap: 20px 40px; 
+    gap: 20px 40px; /* Dikey 20px, Yatay 40px boşluk */
     margin-bottom: 20px;
     width: 100%;
-    max-width: 740px; 
+    max-width: 740px; /* Piyano ve panel ile aynı genişlikte */
 }
 .control-group {
     text-align: center;
-    flex: 1; 
-    min-width: 200px; 
+    flex: 1; /* Eşit yer kaplarlar */
+    min-width: 200px; /* Çok daralmasınlar */
 }
 .control-group p {
     margin-top: 0;
@@ -41,11 +41,13 @@ body {
     max-width: 250px;
     cursor: pointer;
 }
+/* YENİ BİTİŞ */
 
 .octave-controls {
     display: flex;
     justify-content: center;
     gap: 20px;
+    /* margin-bottom kaldırıldı, .controls-container'a taşındı */
 }
 .octave-btn {
     font-size: 1.5em;
@@ -83,6 +85,7 @@ body {
     touch-action: manipulation; 
     -webkit-touch-callout: none;
 }
+/* ... (diğer tüm .key, .white, .black, .options-panel, .orientation-warning stilleri aynı) ... */
 .key.white {
     width: 100px;
     height: 300px;
@@ -113,9 +116,6 @@ body {
 .key.black[data-note="A#"] { left: 570px; }
 .key:active, .key.playing { background-color: #ccc; }
 .key.black:active, .key.black.playing { background-color: #555; }
-
-
-/* Alt Seçenek Paneli Stilleri */
 #options-panel {
     display: none;
     margin-top: 30px; 
@@ -147,7 +147,6 @@ body {
     font-weight: bold;
 }
 #close-options-panel:hover { background: #c0392b; }
-
 .option-key-container {
     display: flex;
     justify-content: center;
@@ -156,11 +155,10 @@ body {
     flex-wrap: nowrap;
     overflow-x: auto; 
 }
-/* YENİ: 4 Tuşa göre ayarlandı */
 .key.option-key {
-    width: 70px; /* 60px'den 70px'e genişletildi */
+    width: 60px;
     height: 150px;
-    font-size: 1.1em; /* +80c'nin sığması için hafifçe küçültüldü */
+    font-size: 1.2em;
     align-items: center;
     margin: 0 5px;
     border: 2px solid #333; 
@@ -171,8 +169,6 @@ body {
 }
 .key.option-key:hover { background-color: #eee; }
 .key.option-key:active { background-color: #ccc; }
-
-/* Mobil "Yan Çevir" Uyarısı (Değişiklik yok) */
 #orientation-warning {
     display: none;
     position: fixed;
