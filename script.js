@@ -9,6 +9,11 @@ const octaveDownBtn = document.getElementById('octave-down');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeDisplay = document.getElementById('volume-display');
 
+// {YENİ} Mod Seçici Değişkenleri
+const mode4SesRadio = document.getElementById('mode-4ses');
+const mode3SesRadio = document.getElementById('mode-3ses');
+let currentMode = '4ses'; // Varsayılan mod
+
 const keyMap = {
     'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E', 'f': 'F',
     't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A', 'u': 'A#', 'j': 'B'
@@ -21,12 +26,8 @@ const optionsNoteName = document.getElementById('options-note-name');
 const closeOptionsButton = document.getElementById('close-options-panel');
 const optionKeys = document.querySelectorAll('.option-key'); // 4 tuş
 
-// --- 2. YENİ BEYİN: CENT HARİTASI (A0 = 0 cent) ---
-
-// 2.1. Ana Referans Frekansı (A0)
+// --- 2. BEYİN: CENT HARİTASI (A0 = 0 cent) ---
 const A0_HZ = 27.50;
-
-// 2.2. Multi-Sampling için 8 Temel Ses Dosyamız ve Frekansları
 const BASE_NOTES = {
     'A0': { 'freq': 27.50, 'path': 'sounds/A0.wav' },
     'A1': { 'freq': 55.00, 'path': 'sounds/A1.wav' },
@@ -37,8 +38,6 @@ const BASE_NOTES = {
     'A6': { 'freq': 1760.00, 'path': 'sounds/A6.wav' },
     'A7': { 'freq': 3520.00, 'path': 'sounds/A7.wav' }
 };
-
-// 2.3. A0=0c referansına göre 88 tuşun Mutlak Cent Değerleri
 const ABSOLUTE_CENT_MAP = {
     'A0': 0, 'A#0': 100, 'B0': 200,
     'C1': 300, 'C#1': 400, 'D1': 500, 'D#1': 600, 'E1': 700, 'F1': 800, 'F#1': 900, 'G1': 1000, 'G#1': 1100, 'A1': 1200, 'A#1': 1300, 'B1': 1400,
@@ -165,24 +164,37 @@ function octaveUp() {
     updateKeys();
 }
 
-// === {DÜZELTİLDİ} PANEL AÇMA MANTIĞI (BASİT ETİKETLİ) ===
+// === {YENİ} PANEL AÇMA MANTIĞI (DİNAMİK ADIMLI) ===
 const openOptionsPanel = (noteData) => {
     const fullNote = noteData.fullNote;
     const baseCentValue = noteData.baseCentValue;
     
     optionsNoteName.textContent = fullNote;
 
-    // 4 panel tuşunu güncelle
+    // 1. Modu kontrol et
+    const steps = (currentMode === '4ses') ? 4 : 3;
+    const centIncrement = (currentMode === '4ses') ? 20 : 25;
+
+    // 2. Panel tuşlarını güncelle
     optionKeys.forEach((optKey, index) => {
-        const centOffset = (index + 1) * 20; // +20, +40, +60, +80
-        const finalCentValue = baseCentValue + centOffset;
         
-        // 1. Frekansı hesapla ve tuşun verisine kaydet
-        const targetHz = centToHz(finalCentValue);
-        optKey.dataset.frequency = targetHz;
-        
-        // 2. {SİLİNDİ} Etiket değiştirme kodu kaldırıldı.
-        // optKey.querySelector('span').textContent = `+${centOffset}c`;
+        if (index < steps) { // 0, 1, 2 (ve 4ses için 3)
+            const centOffset = (index + 1) * centIncrement; // +25/50/75 or +20/40/60/80
+            const finalCentValue = baseCentValue + centOffset;
+            
+            // Frekansı hesapla ve tuşun verisine kaydet
+            const targetHz = centToHz(finalCentValue);
+            optKey.dataset.frequency = targetHz;
+            
+            // Etiketi "1", "2", "3" olarak göster
+            optKey.querySelector('span').textContent = (index + 1).toString();
+            
+            // Tuşu göster
+            optKey.classList.remove('key-hidden');
+        } else {
+            // "3ses" modundaysak 4. tuşu gizle
+            optKey.classList.add('key-hidden');
+        }
     });
     
     optionsPanel.style.display = 'block';
@@ -252,6 +264,10 @@ keys.forEach(key => {
 
 // --- 7. Diğer Olay Dinleyicileri ---
 
+// {YENİ} MOD SEÇİCİ DİNLEYİCİLERİ
+mode4SesRadio.addEventListener('change', () => { currentMode = '4ses'; });
+mode3SesRadio.addEventListener('change', () => { currentMode = '3ses'; });
+
 // SES AYARI DİNLEYİCİSİ
 volumeSlider.addEventListener('input', () => {
     gainNode.gain.value = volumeSlider.value;
@@ -287,7 +303,7 @@ closeOptionsButton.addEventListener(clickEvent, (e) => {
     optionsPanel.style.display = 'none';
 });
 
-// Panel Seçenek Tuşları (1-4)
+// Panel Seçenek Tuşları
 optionKeys.forEach(key => {
     key.addEventListener(clickEvent, (e) => {
         e.preventDefault();
@@ -302,4 +318,4 @@ optionKeys.forEach(key => {
 gainNode.gain.value = volumeSlider.value;
 loadBaseSounds();
 updateKeys(); 
-console.log("HTML Piyano (Cent Motoru + 4 Basit Etiketli Panel) yüklendi.");
+console.log("HTML Piyano (Cent Motoru + 3/4 Modu) yüklendi.");
