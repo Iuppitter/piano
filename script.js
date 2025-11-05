@@ -81,7 +81,10 @@ const midiNoteMap = {};
 })();
 
 // --- 3. SES YÜKLEME VE BAĞLAM ---
-let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+// --- 3. SES YÜKLEME VE BAĞLAM ---
+let audioContext = new (window.AudioContext || window.webkitAudioContext)({
+    latencyHint: 'interactive' // Düşük gecikmeyi talep et (genelde 0.01s hedefler)
+});
 let baseSoundBuffers = {
     'normal': { 'A0': null, 'A1': null, 'A2': null, 'A3': null, 'A4': null, 'A5': null, 'A6': null, 'A7': null },
     'sustain': { 'A0': null, 'A1': null, 'A2': null, 'A3': null, 'A4': null, 'A5': null, 'A6': null, 'A7': null }
