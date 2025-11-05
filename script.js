@@ -1,6 +1,5 @@
 // --- 1. Değişkenler ve Ayarlar ---
 const clickEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
-let isMousePlaying = false; // {YENİ} Mouse ile sürükleyerek çalma durumu
 
 let customMidiMapping = new Map(); 
 let reverseCustomMidiMapping = new Map(); 
@@ -34,9 +33,23 @@ let currentMode = '4ses';
 const sustainSwitch = document.getElementById('sustain-switch');
 const showNoteNamesSwitch = document.getElementById('show-note-names-switch');
 
+// A new keymap for standard US/UK keyboards.
+// The top row (Q-P) plays the white keys, the number row (2-7) plays the black keys.
+// New 2-Octave layout using Turkish keys
+// 'asdf...' row = White Keys
+// 'qwer...' row = Black Keys
 const keyMap = {
-    'q': 'C4',  'w': 'C#4', 'e': 'D4',  'r': 'D#4', 't': 'E4', 'y': 'F4', 
-    'u': 'F#4', 'ı': 'G4',  'o': 'G#4', 'p': 'A4', 'ğ': 'A#4', 'ü': 'B4'
+    // --- Octave 4 ---
+    // White Keys (Middle Row)
+    'a': 'C4',  's': 'D4',  'd': 'E4',  'f': 'F4',  'g': 'G4',  'h': 'A4',  'j': 'B4',
+    // Black Keys (Top Row)
+    'w': 'C#4', 'e': 'D#4', 't': 'F#4', 'y': 'G#4', 'u': 'A#4', 
+
+    // --- Octave 5 ---
+    // White Keys (Middle Row)
+    'k': 'C5',  'l': 'D5',  'ş': 'E5',  'i': 'F5',
+    // Black Keys (Top Row)
+    'o': 'C#5', 'p': 'D#5', 'ğ': 'F#5', 'ü': 'G#5'
 };
 
 const optionsPanelContainer = document.getElementById('options-panel-container');
@@ -104,7 +117,7 @@ let baseSoundBuffers = {
 const masterGainNode = audioContext.createGain();
 masterGainNode.connect(audioContext.destination);
 let activeNotes = new Map();
-
+// ... (loadSound ve loadBaseSounds değişmedi) ...
 function loadSound(url) {
     return fetch(url)
         .then(response => {
@@ -155,7 +168,7 @@ function stopNote(fullNote) {
         const noteNodes = activeNotes.get(fullNote);
         const now = audioContext.currentTime;
         const sustainDuration = 7.0;
-        const releaseDuration = 0.6; 
+        const releaseDuration = 0.6; // {GÜNCELLENDİ}
 
         const duration = sustainSwitch.checked ? sustainDuration : releaseDuration;
         
@@ -174,7 +187,7 @@ function stopNote(fullNote) {
 function playFrequency(targetFrequency, fullNote = null, velocity = 127) {
     if (targetFrequency <= 0.0) { return; }
     if (fullNote && activeNotes.has(fullNote)) {
-        return; // Zaten çalıyorsa tekrar çalma
+        stopNote(fullNote);
     }
     freqDisplay.textContent = targetFrequency.toFixed(2);
     const sampleSetKey = sustainSwitch.checked ? 'sustain' : 'normal';
@@ -250,6 +263,7 @@ function generatePianoKeys() {
             whiteKeyIndex++; 
         }
         
+        // {YENİ} Tuş oluşturulurken haritayı kontrol et
         if (webKeyMapping.has(noteName)) {
             key.classList.add('mapped-web');
         }
@@ -280,6 +294,7 @@ function openOptionsPanel(noteData) {
         return;
     }
     
+    // Diğer öğrenme modlarını iptal et
     isWebKeyLearning = false;
     if (lastSelectedMicroSound) {
         lastSelectedMicroSound.el.classList.remove('selected');
@@ -320,10 +335,12 @@ function openOptionsPanel(noteData) {
     optionsKeyContainer.style.width = `${steps * whiteKeyWidth}px`;
     optionsPanelContainer.style.display = 'block';
     
+    // {YENİ} Eylem düğmelerini göster ve ayarla
     optionsPanelActions.style.display = 'flex';
     quickMapBtn.textContent = `Assign Micro-Sound to ${fullNote}`;
     quickMapBtn.classList.remove('learning');
     resetMapBtn.textContent = `Reset ${fullNote} to Default`;
+    // Eğer tuş zaten atanmışsa, Reset'i etkinleştir
     resetMapBtn.disabled = !webKeyMapping.has(fullNote);
 };
 
@@ -361,12 +378,13 @@ const handlePianoPress = (e, isContextMenu = false) => {
     const noteData = getNoteDataFromElement(e.target);
     if (!noteData) return;
 
-    // {GÜNCELLENDİ} Mouse ile basılan tuşlara 'mouse-' ön eki ekle
-    const pressId = e.touches ? e.changedTouches[0].identifier : (noteData.isOptionKey ? `mouse-opt-${noteData.index}` : `mouse-${noteData.fullNote}`);
+    // {GÜNCELLENDİ} pressId (Polifoni için)
+    const pressId = e.touches ? e.changedTouches[0].identifier : (noteData.isOptionKey ? `opt-${noteData.index}` : noteData.fullNote);
 
     // --- Panel Tuşuna Basıldı ---
     if (noteData.isOptionKey) {
         if (isWebKeyLearning) {
+            // Hızlı haritalama için tuş seçildi
             addWebKeyMapping(currentOpenPanelNote, { freq: noteData.frequency, name: noteData.name });
             closeOptionsPanel();
             return;
@@ -377,9 +395,10 @@ const handlePianoPress = (e, isContextMenu = false) => {
             return;
         }
         
-        if (isContextMenu) return; 
+        if (isContextMenu) return; // Panel tuşlarında sağ tıkı engelle
         if (activePresses.has(pressId)) return;
 
+        // {YENİ} Son seçilen tuşu sakla
         if (lastSelectedMicroSound) {
             lastSelectedMicroSound.el.classList.remove('selected');
         }
@@ -400,15 +419,16 @@ const handlePianoPress = (e, isContextMenu = false) => {
         return;
     }
     
+    // {DÜZELTME} Sağ tık ise, SADECE paneli aç/kapat ve çık
     if (isContextMenu) {
         openOptionsPanel(noteData);
         return;
     }
     
     // Sol Tık veya Dokunma
-    if (activePresses.has(pressId) && !isMousePlaying) return; 
-    if (activeNotes.has(noteData.fullNote)) return; 
+    if (activePresses.has(pressId)) return; 
 
+    // {YENİ} Web haritasını kontrol et
     const mappedSound = webKeyMapping.get(noteData.fullNote);
     
     if (mappedSound) {
@@ -433,13 +453,17 @@ const handlePianoRelease = (e) => {
     e.preventDefault();
     
     const targetEl = e.target;
+    
+    // Dokunmatik için: e.changedTouches kullanmak daha güvenilir olabilir ama multi-touch release'i karmaşık.
+    // Şimdilik basitleştirilmiş sürüm:
     const noteData = getNoteDataFromElement(targetEl);
     if (!noteData) {
+        // Belki de `activePresses` içinde `e.identifier`'a göre arama yapmak daha iyidir
+        // Ama şimdilik bu polifoni için yeterli olmalı
         return;
     }
     
-    // {GÜNCELLENDİ} Mouse ile basılan tuşlara 'mouse-' ön eki ekle
-    const pressId = e.touches ? e.changedTouches[0].identifier : (noteData.isOptionKey ? `mouse-opt-${noteData.index}` : `mouse-${noteData.fullNote}`);
+    const pressId = e.touches ? e.changedTouches[0].identifier : (noteData.isOptionKey ? `opt-${noteData.index}` : noteData.fullNote);
     const pressData = activePresses.get(pressId);
     
     if (!pressData) return;
@@ -452,36 +476,34 @@ const handlePianoRelease = (e) => {
     activePresses.delete(pressId);
 };
 
+const handlePianoLeave = (e) => {
+    if (clickEvent === 'click' && e.buttons === 1) {
+        const noteData = getNoteDataFromElement(e.target);
+        if (!noteData) return;
 
-// Olayları ana piyano konteynerine devret (SÜRÜKLEME MANTIĞI EKLENDİ)
+        const pressId = noteData.isOptionKey ? `opt-${noteData.index}` : noteData.fullNote;
+        const pressData = activePresses.get(pressId);
+        
+        if (!pressData) return;
+
+        if (pressData.pressTimer) {
+            clearTimeout(pressData.pressTimer);
+        }
+        stopNote(pressData.fullNote);
+        activePresses.delete(pressId);
+    }
+};
+
+// Olayları ana piyano konteynerine devret
 pianoKeyboard.addEventListener('mousedown', (e) => {
-    if (clickEvent === 'click' && e.button === 0) {
-        isMousePlaying = true; // Sürüklemeyi başlat
-        handlePianoPress(e);
-    }
+    if (clickEvent === 'click' && e.button === 0) handlePianoPress(e);
 });
-
-// {YENİ} Mouse ile sürükleyerek çalma (mouseover)
-pianoKeyboard.addEventListener('mouseover', (e) => {
-    if (clickEvent === 'click' && isMousePlaying && e.buttons === 1) {
-        handlePianoPress(e);
-    }
-});
-
-// {YENİ} Mouse ile sürüklerken tuştan çıkma (mouseout)
-pianoKeyboard.addEventListener('mouseout', (e) => {
-    if (clickEvent === 'click' && isMousePlaying && e.buttons === 1) {
-        handlePianoRelease(e);
-    }
-});
-
 pianoKeyboard.addEventListener('mouseup', (e) => {
-    if (clickEvent === 'click' && e.button === 0) {
-        isMousePlaying = false; // Sürüklemeyi durdur
-    }
+    if (clickEvent === 'click' && e.button === 0) handlePianoRelease(e);
 });
-
-// --- DOKUNMATİK DİNLEYİCİLERİ (Aynı kaldı) ---
+pianoKeyboard.addEventListener('mouseleave', (e) => {
+    if (clickEvent === 'click') handlePianoLeave(e);
+});
 pianoKeyboard.addEventListener('touchstart', (e) => handlePianoPress(e));
 pianoKeyboard.addEventListener('touchend', (e) => handlePianoRelease(e));
 pianoKeyboard.addEventListener('touchcancel', (e) => handlePianoRelease(e));
@@ -495,7 +517,7 @@ optionsKeyContainer.addEventListener('mouseup', (e) => {
     if (clickEvent === 'click' && e.button === 0) handlePianoRelease(e);
 });
 optionsKeyContainer.addEventListener('mouseleave', (e) => {
-    if (clickEvent === 'click' && e.buttons === 1) handlePianoRelease(e);
+    if (clickEvent === 'click') handlePianoLeave(e);
 });
 optionsKeyContainer.addEventListener('touchstart', (e) => handlePianoPress(e));
 optionsKeyContainer.addEventListener('touchend', (e) => handlePianoRelease(e));
@@ -504,21 +526,6 @@ optionsKeyContainer.addEventListener('contextmenu', (e) => e.preventDefault());
 
 
 // --- 7. Diğer Olay Dinleyicileri ---
-
-// {GÜNCELLENDİ} Mouse tuşu pencerenin herhangi bir yerinde bırakılırsa
-window.addEventListener('mouseup', (e) => {
-    if (clickEvent === 'click' && e.button === 0 && isMousePlaying) {
-        isMousePlaying = false;
-        
-        activePresses.forEach((pressData, pressId) => {
-            // {GÜNCELLENDİ} Sadece 'mouse-' ön ekine sahip notaları durdur
-            if (typeof pressId === 'string' && pressId.startsWith('mouse-')) { 
-                stopNote(pressData.fullNote); 
-                activePresses.delete(pressId);
-            }
-        });
-    }
-});
 
 // MOD SEÇİCİ DİNLEYİCİSİ
 modeButtons.forEach(button => {
@@ -574,10 +581,10 @@ window.addEventListener('keydown', (e) => {
     
     const fullNote = keyMap[keyChar];
     if (fullNote) {
-        // {GÜNCELLENDİ} baseCentValue'yu burada tanımla
-        const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
-        if (baseCentValue !== undefined && !activeNotes.has(fullNote)) { 
+        if (ABSOLUTE_CENT_MAP[fullNote] !== undefined && !activeNotes.has(fullNote)) { 
+            const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
             
+            // {YENİ} Web haritasını kontrol et
             const mappedSound = webKeyMapping.get(fullNote);
             if (mappedSound) {
                 playFrequency(mappedSound.freq, fullNote, 127);
@@ -588,9 +595,6 @@ window.addEventListener('keydown', (e) => {
             const keyElement = document.querySelector(`.piano .key[data-note="${fullNote}"]`);
             highlightKey(keyElement);
             lastPlayedNoteData = { noteBase: fullNote.replace(/\d/g, ''), fullNote, baseCentValue };
-            
-            // {GÜNCELLENDİ} Klavye için activePresses'e 'key-' ön eki ile ekleme
-            activePresses.set(`key-${fullNote}`, { fullNote, baseCentValue, pressTimer: null });
         }
     }
 });
@@ -602,8 +606,6 @@ window.addEventListener('keyup', (e) => {
     if (fullNote) {
         if (ABSOLUTE_CENT_MAP[fullNote] !== undefined) { 
             stopNote(fullNote);
-            // {GÜNCELLENDİ} Klavye için activePresses'ten 'key-' ön eki ile silme
-            activePresses.delete(`key-${fullNote}`);
         }
     }
 });
@@ -685,6 +687,7 @@ function handleMIDIMessage(message) {
         } else {
             const noteName = midiNoteMap[note];
             if (noteName && ABSOLUTE_CENT_MAP[noteName] !== undefined) {
+                // {YENİ} MIDI çalarken de web haritasını kontrol et
                 const webMappedSound = webKeyMapping.get(noteName);
                 const baseCentValue = ABSOLUTE_CENT_MAP[noteName];
 
@@ -807,25 +810,6 @@ generatePianoKeys(); // Piyanoyu oluştur
 if (!showNoteNamesSwitch.checked) {
     document.body.classList.add('hide-note-names');
 }
-
-// {YENİ} Kaydırma Düğmeleri Olay Dinleyicileri
-const scrollLeftBtn = document.getElementById('scroll-left-btn');
-const scrollRightBtn = document.getElementById('scroll-right-btn');
-const SCROLL_AMOUNT = 300; // Piksel cinsinden kaydırma miktarı
-
-scrollLeftBtn.addEventListener('click', () => {
-    pianoScrollContainer.scrollBy({
-        left: -SCROLL_AMOUNT,
-        behavior: 'smooth'
-    });
-});
-
-scrollRightBtn.addEventListener('click', () => {
-    pianoScrollContainer.scrollBy({
-        left: SCROLL_AMOUNT,
-        behavior: 'smooth'
-    });
-});
 
 setupMIDI(); 
 midiLearnBtn.addEventListener('click', startMidiLearn);
