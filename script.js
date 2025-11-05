@@ -346,28 +346,66 @@ function openOptionsPanel(noteData) {
     const mode = CENT_MODES[currentMode];
     const steps = mode.steps; 
     const centIncrement = mode.increment;
+    // ... openOptionsPanel fonksiyonu içinde ...
+    // ... openOptionsPanel fonksiyonu içinde ...
     const whiteKeyWidth = 32;
+    const gapWidth = 10; // {YENİ} Tuş grupları arası boşluk (örn: 10px)
 
-    for (let i = 0; i < steps; i++) {
-        const centOffset = (i + 1) * centIncrement;
+    // {YENİ} Negatif tuşları oluştur (örn: -4, -3, -2, -1)
+    // i = 3, 2, 1, 0 (steps = 4 için)
+    for (let i = steps - 1; i >= 0; i--) {
+        const stepNum = i + 1;
+        const label = `-${stepNum}`;
+        const centOffset = (stepNum) * centIncrement * -1; // Negatif ofset
         const finalCentValue = baseCentValue + centOffset;
         const targetHz = centToHz(finalCentValue);
         
         const key = document.createElement('div');
         key.className = 'key white'; 
-        key.dataset.optionIndex = i;
+        key.dataset.optionIndex = -stepNum; // Negatif indeks
         key.dataset.frequency = targetHz;
-        key.dataset.name = `${fullNote} +${i+1}`;
+        key.dataset.name = `${fullNote} ${label}`; // + yerine boşluk
         
         const span = document.createElement('span');
-        span.textContent = (i + 1).toString();
+        span.textContent = label;
+        key.appendChild(span);
+        
+        optionsKeyContainer.appendChild(key);
+    }
+
+    // {YENİ} Negatif ve Pozitif tuşlar arasına boşluk ekle
+    const spacer = document.createElement('div');
+    spacer.style.width = `${gapWidth}px`;
+    spacer.style.height = '100%';
+    spacer.style.flexShrink = '0'; // Küçülmesini engelle
+    optionsKeyContainer.appendChild(spacer);
+
+    // {YENİ} Pozitif tuşları oluştur (örn: 1, 2, 3, 4)
+    // i = 0, 1, 2, 3 (steps = 4 için)
+    for (let i = 0; i < steps; i++) {
+        const stepNum = i + 1;
+        const label = `${stepNum}`;
+        const centOffset = (stepNum) * centIncrement;
+        const finalCentValue = baseCentValue + centOffset;
+        const targetHz = centToHz(finalCentValue);
+        
+        const key = document.createElement('div');
+        key.className = 'key white'; 
+        key.dataset.optionIndex = stepNum; // Pozitif indeks
+        key.dataset.frequency = targetHz;
+        key.dataset.name = `${fullNote} +${label}`;
+        
+        const span = document.createElement('span');
+        span.textContent = label;
         key.appendChild(span);
         
         optionsKeyContainer.appendChild(key);
     }
     
-    optionsKeyContainer.style.width = `${steps * whiteKeyWidth}px`;
+    // {GÜNCELLENDİ} Toplam genişliği ayarla (tuşlar + boşluk)
+    optionsKeyContainer.style.width = `${(steps * 2) * whiteKeyWidth + gapWidth}px`;
     optionsPanelContainer.style.display = 'block';
+// ...
     
     // {YENİ} Eylem düğmelerini göster ve ayarla
     optionsPanelActions.style.display = 'flex';
