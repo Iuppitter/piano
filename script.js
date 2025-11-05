@@ -165,30 +165,61 @@ function centToHz(centValue) {
 
 function stopNote(fullNote) {
     if (activeNotes.has(fullNote)) {
-        const noteNodes = activeNotes.get(fullNote);
+        const noteData = activeNotes.get(fullNote); // Renamed
         const now = audioContext.currentTime;
         const sustainDuration = 7.0;
-        const releaseDuration = 0.6; // {GÜNCELLENDİ}
-
+        const releaseDuration = 0.6; 
         const duration = sustainSwitch.checked ? sustainDuration : releaseDuration;
         
-        noteNodes.gain.gain.cancelScheduledValues(now);
-        noteNodes.gain.gain.setValueAtTime(noteNodes.gain.gain.value, now);
-        noteNodes.gain.gain.linearRampToValueAtTime(0, now + duration);
+        // If a fade-out is already scheduled, cancel it
+        if (noteData.fadeTimer) {
+            clearTimeout(noteData.fadeTimer);
+            noteData.fadeTimer = null;
+        }
 
-        setTimeout(() => {
-            noteNodes.source.stop();
-            noteNodes.source.disconnect();
-            noteNodes.gain.disconnect();
+        noteData.gain.gain.cancelScheduledValues(now);
+        noteData.gain.gain.setValueAtTime(noteData.gain.gain.value, now);
+        noteData.gain.gain.linearRampToValueAtTime(0, now + duration);
+
+        // Store the new timer
+        noteData.fadeTimer = setTimeout(() => {
+            try {
+                noteData.source.stop();
+                noteData.source.disconnect();
+                noteData.gain.disconnect();
+            } catch (e) {
+                // Ignore errors if source was already stopped
+            }
             activeNotes.delete(fullNote);
-        }, duration * 1000 + 100);
+        }, duration * 1000 + 100); // 100ms buffer
     }
 }
 function playFrequency(targetFrequency, fullNote = null, velocity = 127) {
     if (targetFrequency <= 0.0) { return; }
+
+    // --- FIX FOR RE-TRIGGERING ---
     if (fullNote && activeNotes.has(fullNote)) {
-        stopNote(fullNote);
+        // Get the old note's data
+        const oldNoteData = activeNotes.get(fullNote);
+        
+        // If it has a pending timer, kill the timer
+        if (oldNoteData.fadeTimer) {
+            clearTimeout(oldNoteData.fadeTimer);
+        }
+        
+        // Stop the old sound source *immediately*
+        try {
+            oldNoteData.source.stop();
+            oldNoteData.source.disconnect();
+            oldNoteData.gain.disconnect();
+        } catch (e) {
+            // Ignore errors
+        }
+        // Note is *not* deleted from activeNotes here,
+        // it will be overwritten in a moment.
     }
+    // --- END FIX ---
+
     freqDisplay.textContent = targetFrequency.toFixed(2);
     const sampleSetKey = sustainSwitch.checked ? 'sustain' : 'normal';
     const sampleSet = baseSoundBuffers[sampleSetKey];
@@ -221,7 +252,10 @@ function playFrequency(targetFrequency, fullNote = null, velocity = 127) {
     noteGain.connect(masterGainNode);
     source.start(0);
     if (fullNote) {
-        activeNotes.set(fullNote, { source: source, gain: noteGain });
+        // --- FIX ---
+        // Add the fadeTimer property to the new note object
+        activeNotes.set(fullNote, { source: source, gain: noteGain, fadeTimer: null });
+        // --- END FIX ---
     }
 }
 
@@ -568,46 +602,70 @@ showNoteNamesSwitch.addEventListener('change', () => {
 });
 
 // Klavye (Masaüstü)
+// {GÜNCELLENDİ} Klavye Basılan Tuşları İzle (Polyphony)
+const pressedKeys = new Set();
+
+// Klavye (Masaüstü)
 window.addEventListener('keydown', (e) => {
-    if (e.repeat) return; 
     const keyChar = e.key.toLowerCase();
     
+    // 'C' tuşu için özel işlem
     if (keyChar === 'c') {
-        if (lastPlayedNoteData) {
+        if (!e.repeat && lastPlayedNoteData) {
             openOptionsPanel(lastPlayedNoteData); 
         }
         return;
     }
     
     const fullNote = keyMap[keyChar];
-    if (fullNote) {
-        if (ABSOLUTE_CENT_MAP[fullNote] !== undefined && !activeNotes.has(fullNote)) { 
-            const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
-            
-            // {YENİ} Web haritasını kontrol et
-            const mappedSound = webKeyMapping.get(fullNote);
-            if (mappedSound) {
-                playFrequency(mappedSound.freq, fullNote, 127);
-            } else {
-                playFrequency(centToHz(baseCentValue), fullNote, 127);
-            }
-            
-            const keyElement = document.querySelector(`.piano .key[data-note="${fullNote}"]`);
-            highlightKey(keyElement);
-            lastPlayedNoteData = { noteBase: fullNote.replace(/\d/g, ''), fullNote, baseCentValue };
+    if (!fullNote) return;
+    
+    // Eğer tuş zaten basılıysa, tekrar çalma
+    if (pressedKeys.has(keyChar)) return;
+    
+    if (ABSOLUTE_CENT_MAP[fullNote] !== undefined) { 
+        pressedKeys.add(keyChar); // Tuşu basılı olarak işaretle
+        
+        const baseCentValue = ABSOLUTE_CENT_MAP[fullNote];
+        
+        // Web haritasını kontrol et
+        const mappedSound = webKeyMapping.get(fullNote);
+        if (mappedSound) {
+            playFrequency(mappedSound.freq, fullNote, 127);
+        } else {
+            playFrequency(centToHz(baseCentValue), fullNote, 127);
         }
+        
+        const keyElement = document.querySelector(`.piano .key[data-note="${fullNote}"]`);
+        highlightKey(keyElement);
+        lastPlayedNoteData = { noteBase: fullNote.replace(/\d/g, ''), fullNote, baseCentValue };
     }
 });
 
 window.addEventListener('keyup', (e) => {
     const keyChar = e.key.toLowerCase();
     if (keyChar === 'c') return; 
+    
     const fullNote = keyMap[keyChar];
-    if (fullNote) {
-        if (ABSOLUTE_CENT_MAP[fullNote] !== undefined) { 
+    if (!fullNote) return;
+    
+    // Tuşu basılı setinden çıkar
+    pressedKeys.delete(keyChar);
+    
+    if (ABSOLUTE_CENT_MAP[fullNote] !== undefined) { 
+        stopNote(fullNote);
+    }
+});
+
+// Pencere focus kaybederse tüm tuşları serbest bırak
+window.addEventListener('blur', () => {
+    pressedKeys.forEach(keyChar => {
+        const fullNote = keyMap[keyChar];
+        if (fullNote && ABSOLUTE_CENT_MAP[fullNote] !== undefined) {
             stopNote(fullNote);
         }
-    }
+    });
+    pressedKeys.clear();
 });
 
 // {YENİ} Özel Panel Kapatma Düğmesi
