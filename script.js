@@ -94,7 +94,8 @@ const CENT_MODES = {
     '2ses': { steps: 2, increment: 100 / 3 }, // 33.33c
     '3ses': { steps: 3, increment: 100 / 4 }, // 25c
     '4ses': { steps: 4, increment: 100 / 5 }, // 20c
-    '5ses': { steps: 5, increment: 100 / 6 }  // 16.67c
+    '5ses': { steps: 5, increment: 100 / 6 }, // 16.67c
+    '9ses': { steps: 9, increment: 10 }  // 10c (YENİ EKLENDİ)
 };
 
 const midiNoteMap = {};
